@@ -1,0 +1,23 @@
+# deps
+node_modules/
+
+# next
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# opennext / cloudflare
+.open-next/
+.wrangler/
+workers/
+
+# env (never commit secrets)
+.env
+.env*.local
+.dev.vars
+
+# logs / os
+*.log
+server*.log
+.DS_Store
+Thumbs.db

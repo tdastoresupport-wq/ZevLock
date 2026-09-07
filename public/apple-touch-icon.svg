@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <rect width="180" height="180" rx="40" fill="#05060f"/>
+  <text x="90" y="112" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-weight="800" font-size="52" fill="#ffffff" letter-spacing="3">ZEV</text>
+  <circle cx="90" cy="138" r="4" fill="#22d3ee"/>
+</svg>

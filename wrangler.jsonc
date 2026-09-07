@@ -1,0 +1,26 @@
+/** Cloudflare Workers config (OpenNext adapter).
+ *  D1 database binding: `DB` -> database `zevlock-db`.
+ *  After `wrangler d1 create zevlock-db`, paste the real `database_id` below.
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zev-lock",
+  "compatibility_date": "2025-06-17",
+  "main": ".open-next/worker.js",
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zevlock-db",
+      "database_id": "REPLACE_WITH_WRANGLER_D1_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "DEFAULT_DEVICE_LIMIT": "1",
+    "DEFAULT_PLAN": "PREMIUM VIP"
+  }
+}
