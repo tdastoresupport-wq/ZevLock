@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Crosshair, Power } from "lucide-react";
 import { SectionHeader, Skeleton, Toggle } from "./ui";
 import { api } from "@/lib/api";
-import { playOff, playOn } from "@/lib/sound";
+import { playError, playOff, playOn } from "@/lib/sound";
 import { FUNCTIONS, type ActivityEvent, type FunctionKey, type FunctionStates } from "@/lib/types";
 import { fmtTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -207,6 +207,7 @@ export async function persistToggle(
     });
   } catch (e) {
     apply(current); // rollback
+    playError();
     throw e;
   }
 }
@@ -235,6 +236,7 @@ export async function persistMany(
     });
   } catch (e) {
     apply(current); // rollback
+    playError();
     throw e;
   }
 }

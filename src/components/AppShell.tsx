@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { BottomNav, type Tab } from "@/components/BottomNav";
 import { BrandMark } from "@/components/BrandMark";
@@ -34,6 +34,13 @@ export default function AppShell() {
   const [savingAll, setSavingAll] = useState(false);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [welcome, setWelcome] = useState(false);
+  const flightRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const pushActivity = useCallback((a: ActivityEvent) => {
     setActivity((prev) => {
@@ -67,25 +74,65 @@ export default function AppShell() {
   useEffect(() => {
     setActivity(loadActivity());
     const started = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     (async () => {
       let ok = false;
       if (localStorage.getItem("zev_token")) ok = await refresh();
-      if (ok) setWelcome(true); // welcome popup on every login / session boot
+      if (ok && mountedRef.current) setWelcome(true); // welcome popup on every login / session boot
       // Startup animation beat (~900ms) before revealing the dashboard.
       const wait = Math.max(0, 900 - (Date.now() - started));
-      setTimeout(() => setBooting(false), wait);
+      timer = setTimeout(() => { if (mountedRef.current) setBooting(false); }, wait);
     })();
+    return () => { if (timer) clearTimeout(timer); };
   }, [refresh]);
+
+  // Re-sync authoritative state whenever the tab becomes visible again,
+  // so a toggle-then-navigate-away sequence can never leave stale UI.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible" && localStorage.getItem("zev_token")) void refresh();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [refresh]);
+
+  /** Authoritative function-state refetch (reconciles stale optimistic views). */
+  const refetchFunctions = useCallback(async () => {
+    try {
+      const t = localStorage.getItem("zev_token");
+      const headers: Record<string, string> = t ? { Authorization: `Bearer ${t}` } : {};
+      const res = await fetch(`/api/functions`, { headers });
+      if (!res.ok) return;
+      const data = (await res.json()) as { functions: FunctionStates };
+      if (mountedRef.current && data.functions) {
+        setStatus((s) => (s ? { ...s, functions: data.functions } : s));
+      }
+    } catch { /* reconcile is best-effort */ }
+  }, []);
+
+  /**
+   * Mutation gate: every toggle intent gets a sequence number. If a newer
+   * intent started while this flight was in the air, this response may be
+   * stale → reconcile from the server instead of trusting it.
+   */
+  async function mutate<T>(fn: () => Promise<T>): Promise<T> {
+    const id = ++flightRef.current;
+    try {
+      return await fn();
+    } finally {
+      if (id !== flightRef.current && mountedRef.current) await refetchFunctions();
+    }
+  }
 
   async function handleToggle(key: FunctionKey, next: boolean) {
     if (!status) return;
     setSavingKey(key);
     try {
-      await persistToggle(key, next, status.functions, (f: FunctionStates) => {
-        setStatus((s) => (s ? { ...s, functions: f } : s));
-      }, pushActivity);
+      await mutate(() => persistToggle(key, next, status.functions, (f: FunctionStates) => {
+        if (mountedRef.current) setStatus((s) => (s ? { ...s, functions: f } : s));
+      }, pushActivity));
     } finally {
-      setSavingKey(null);
+      if (mountedRef.current) setSavingKey(null);
     }
   }
 
@@ -96,11 +143,11 @@ export default function AppShell() {
     ) as FunctionStates;
     setSavingAll(true);
     try {
-      await persistMany(full, status.functions, (f: FunctionStates) => {
-        setStatus((s) => (s ? { ...s, functions: f } : s));
-      }, pushActivity);
+      await mutate(() => persistMany(full, status.functions, (f: FunctionStates) => {
+        if (mountedRef.current) setStatus((s) => (s ? { ...s, functions: f } : s));
+      }, pushActivity));
     } finally {
-      setSavingAll(false);
+      if (mountedRef.current) setSavingAll(false);
     }
   }
 

@@ -8,7 +8,7 @@ import { rateLimit, signSession, tooMany } from "@/lib/auth";
 import { activateLicenseSchema } from "@/lib/validation";
 import { addDaysIso, newId } from "@/lib/keys";
 
-const SESSION_TTL_SECONDS = 30 * 24 * 3600; // 30-day secure session
+const SESSION_TTL_SECONDS = 30 * 24 * 3600; // 30-day session
 
 /** POST /api/license/activate — verify key, bind device, create session. */
 export async function POST(req: NextRequest) {

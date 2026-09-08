@@ -111,6 +111,14 @@ public/              icon.svg, apple-touch-icon.svg
 - License decisions (expiry, status, device limits) are computed server-side from timestamps — the frontend is never trusted.
 - Secrets compared in constant time; admin tokens never accepted via URL query params.
 - No secrets in the client bundle; no browser-to-D1 access (all through API routes).
+- Rate limits are in-memory per isolate (correct for single-isolate dev and small
+  Workers deployments). For multi-isolate production strictness, add Cloudflare
+  Rate Limiting rules in front of `/api/*` — especially `/api/admin/login`.
+- License keys are stored reversibly (needed for admin lookup/display and exact-match
+  activation). Tradeoff documented: hashing keys at rest (SHA-256 + lookup by hash)
+  would remove plaintext secrets from D1 but breaks admin substring search and
+  requires a show-once flow everywhere. D1 data is encrypted at rest by Cloudflare
+  and reachable only with the Worker's D1 binding — accepted for V1.
 - Sessions: HMAC-signed, 30-day TTL, HttpOnly cookie; Bearer fallback for installed PWAs.
 - Admin endpoints require `ADMIN_API_TOKEN`; destructive actions have confirm dialogs and audit logs.
 - Rate limiting: in-memory per-isolate buckets on check/activate/function-update routes

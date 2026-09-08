@@ -58,22 +58,42 @@ function guard(): boolean {
   return typeof window !== "undefined" && isSoundEnabled();
 }
 
+/* Throttle: at most one toggle sound per 150ms — rapid toggling stays
+ * a single clean feedback stream instead of dozens of overlaps. */
+let lastToggleAt = 0;
+const TOGGLE_GAP_MS = 150;
+
+function toggleGuard(): boolean {
+  if (!guard()) return false;
+  const t = Date.now();
+  if (t - lastToggleAt < TOGGLE_GAP_MS) return false;
+  lastToggleAt = t;
+  return true;
+}
+
 /** Soft tick for taps / navigation. */
 export function playClick(): void {
   if (!guard()) return;
   blip(620, 520, 28, 0.035);
 }
 
-/** Rising two-tone for enabling. */
+/** Rising two-tone for enabling. Throttled — one event, one sound max. */
 export function playOn(): void {
-  if (!guard()) return;
+  if (!toggleGuard()) return;
   blip(440, 520, 45, 0.045);
   blip(660, 840, 60, 0.045, 45);
 }
 
-/** Falling two-tone for disabling. */
+/** Falling two-tone for disabling. Throttled — one event, one sound max. */
 export function playOff(): void {
-  if (!guard()) return;
+  if (!toggleGuard()) return;
   blip(660, 560, 45, 0.045);
   blip(440, 330, 60, 0.045, 45);
+}
+
+/** Low blip for failed saves / rollbacks. Never throttled away silently —
+ *  failures are rare, so each one deserves its feedback. */
+export function playError(): void {
+  if (!guard()) return;
+  blip(220, 160, 90, 0.05);
 }

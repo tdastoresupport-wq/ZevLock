@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addLog, insertLicense, listLicenses } from "@/lib/db";
-import { adminOnly } from "@/lib/auth";
+import { adminOnly, rateLimit, tooMany } from "@/lib/auth";
 import { createLicenseSchema } from "@/lib/validation";
 import { validateAvatar } from "@/lib/avatar";
 import { addDaysIso, generateLicenseKey, newId } from "@/lib/keys";
@@ -39,6 +39,8 @@ const PRESET_MS: Record<string, number> = {
 export async function POST(req: NextRequest) {
   const denied = await adminOnly(req);
   if (denied) return denied;
+  const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "anon";
+  if (!rateLimit(`admin-create:${ip}`, 20, 60_000)) return tooMany();
   const body = await req.json().catch(() => ({}));
   const parsed = createLicenseSchema.safeParse(body);
   if (!parsed.success) {

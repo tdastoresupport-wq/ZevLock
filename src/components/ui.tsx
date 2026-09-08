@@ -43,7 +43,9 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   );
 }
 
-/** Premium tactile switch: spring knob, press squash, glow when on. Hit area ≥ 44px. */
+/** Premium tactile switch: spring knob, press squash, glow when on. Hit area ≥ 44px.
+ *  The knob moves on an explicit x transform (never layout/left-right class
+ *  swaps), so rapid toggles always retarget to a deterministic end state. */
 export function Toggle({ on, disabled, label, onChange }: { on: boolean; disabled?: boolean; label: string; onChange: () => void }) {
   return (
     <motion.button
@@ -66,11 +68,13 @@ export function Toggle({ on, disabled, label, onChange }: { on: boolean; disable
         )}
       />
       <motion.span
-        layout
+        initial={false}
+        animate={{ x: on ? 11 : -11 }}
         transition={{ type: "spring", stiffness: 650, damping: 30 }}
+        style={{ marginLeft: -12, marginTop: -12 }}
         className={cn(
-          "absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-white",
-          on ? "right-[7px] shadow-[0_0_10px_rgba(255,255,255,0.7)]" : "left-[7px] shadow"
+          "absolute left-1/2 top-1/2 h-6 w-6 rounded-full bg-white",
+          on ? "shadow-[0_0_10px_rgba(255,255,255,0.7)]" : "shadow"
         )}
       />
     </motion.button>

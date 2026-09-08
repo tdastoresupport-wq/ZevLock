@@ -106,7 +106,7 @@ export function LicenseScreen({ onActivated }: { onActivated: (s: LicenseStatusR
         {phase === "success" ? (
           <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
             <ShieldCheck size={20} className="text-emerald-300" />
-            <p className="text-sm font-bold text-emerald-200">Activated — creating secure session…</p>
+            <p className="text-sm font-bold text-emerald-200">Activated — opening your dashboard…</p>
           </motion.div>
         ) : (
           <button className="zev-btn-primary mt-4" disabled={phase === "checking" || key.trim().length < 8} onClick={() => void handleActivate()}>
