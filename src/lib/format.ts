@@ -21,3 +21,24 @@ export function fmtCountdown(ms: number): string {
   const sec = String(s % 60).padStart(2, "0");
   return `${h}:${m}:${sec}`;
 }
+
+/** Relative time ("Just now", "3 min ago") for activity rows. */
+export function timeAgo(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "";
+  const diff = Date.now() - t;
+  if (diff < 45_000) return "Just now";
+  const min = Math.floor(diff / 60_000);
+  if (min < 60) return `${min} min ago`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} hour${h > 1 ? "s" : ""} ago`;
+  return fmtDate(iso);
+}
+
+/** Time-based greeting for the home hero. */
+export function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 11) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}

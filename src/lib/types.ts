@@ -40,32 +40,39 @@ export const FUNCTION_KEYS = [
   "sensitivity_boost",
   "screen_boost",
   "headshot_fix",
+  "fix_recoil",
 ] as const;
 
 export type FunctionKey = (typeof FUNCTION_KEYS)[number];
 
 export type FunctionStates = Record<FunctionKey, boolean>;
 
+export type FunctionGroup = "AIM ASSIST" | "PERFORMANCE";
+
 export interface FunctionMeta {
   key: FunctionKey;
   name: string;
   tagline: string;
+  group: FunctionGroup;
 }
 
 export const FUNCTIONS: FunctionMeta[] = [
-  { key: "aimlock_head", name: "AimLock Head", tagline: "✓ Bám Đầu" },
-  { key: "stability_assist", name: "Stability Assist", tagline: "✓ Nhẹ Tâm" },
-  { key: "aim_hold", name: "Aim Hold", tagline: "✓ Ghim Tâm" },
-  { key: "aim_lockdown", name: "Aim LockDown", tagline: "✓ Đầm Tâm" },
-  { key: "sensitivity_boost", name: "Sensitivity Boost", tagline: "✓ Nhạy" },
-  { key: "screen_boost", name: "Screen Boost", tagline: "✓ Buff Màn" },
-  { key: "headshot_fix", name: "HeadShot Fix", tagline: "✓ Fix Lố Đầu" },
+  { key: "aimlock_head", name: "AimLock Head", tagline: "✓ Bám Đầu", group: "AIM ASSIST" },
+  { key: "stability_assist", name: "Stability Assist", tagline: "✓ Nhẹ Tâm", group: "AIM ASSIST" },
+  { key: "aim_hold", name: "Aim Hold", tagline: "✓ Ghim Tâm", group: "AIM ASSIST" },
+  { key: "aim_lockdown", name: "Aim LockDown", tagline: "✓ Đầm Tâm", group: "AIM ASSIST" },
+  { key: "sensitivity_boost", name: "Sensitivity Boost", tagline: "✓ Nhạy", group: "PERFORMANCE" },
+  { key: "screen_boost", name: "Screen Boost", tagline: "✓ Buff Màn", group: "PERFORMANCE" },
+  { key: "headshot_fix", name: "HeadShot Fix", tagline: "✓ Fix Lố Đầu", group: "PERFORMANCE" },
+  { key: "fix_recoil", name: "Fix Recoil", tagline: "✓ Đỡ Giật", group: "PERFORMANCE" },
 ];
 
 export interface ActivityEvent {
   id: string;
   at: string;
+  iso?: string;
   label: string;
+  action?: string;
   kind: "enabled" | "disabled" | "info";
 }
 

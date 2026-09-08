@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BottomNav, type Tab } from "@/components/BottomNav";
 import { LicenseScreen } from "@/components/LicenseScreen";
+import { WelcomeModal } from "@/components/modals";
 import { HomeTab } from "@/components/HomeTab";
 import { FunctionTab, persistToggle } from "@/components/FunctionTab";
 import { RealtimeTab } from "@/components/RealtimeTab";
@@ -18,11 +19,8 @@ function loadActivity(): ActivityEvent[] {
     const raw = localStorage.getItem(ACT_KEY);
     if (raw) return JSON.parse(raw) as ActivityEvent[];
   } catch { /* ignore */ }
-  return [
-    { id: "seed-1", at: "22:31:04", label: "AimLock Head enabled", kind: "enabled" },
-    { id: "seed-2", at: "22:31:17", label: "Stability Assist enabled", kind: "enabled" },
-    { id: "seed-3", at: "22:33:02", label: "Aim Hold disabled", kind: "disabled" },
-  ];
+  // No fake seeds — only real events generated on this device are shown.
+  return [];
 }
 
 export default function AppShell() {
@@ -32,6 +30,7 @@ export default function AppShell() {
   const [tab, setTab] = useState<Tab>("home");
   const [savingKey, setSavingKey] = useState<FunctionKey | null>(null);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
+  const [welcome, setWelcome] = useState(false);
 
   const pushActivity = useCallback((a: ActivityEvent) => {
     setActivity((prev) => {
@@ -51,20 +50,27 @@ export default function AppShell() {
       if (res.status === 401 || res.status === 403) {
         api.clearToken();
         setStatus(null);
-        return;
+        return false;
       }
       if (!res.ok) throw new Error("Failed to load session");
       setStatus((await res.json()) as LicenseStatusResponse);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
+      return false;
     }
   }, []);
 
   useEffect(() => {
     setActivity(loadActivity());
+    const started = Date.now();
     (async () => {
-      if (localStorage.getItem("zev_token")) await refresh();
-      setBooting(false);
+      let ok = false;
+      if (localStorage.getItem("zev_token")) ok = await refresh();
+      if (ok) setWelcome(true); // welcome popup on every login / session boot
+      // Startup animation beat (~900ms) before revealing the dashboard.
+      const wait = Math.max(0, 900 - (Date.now() - started));
+      setTimeout(() => setBooting(false), wait);
     })();
   }, [refresh]);
 
@@ -84,20 +90,25 @@ export default function AppShell() {
     try { await api.logout(); } catch { /* ignore */ }
     api.clearToken();
     setStatus(null);
+    setWelcome(false);
     setTab("home");
   }
 
   if (booting) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-lg font-black tracking-[0.3em]">ZEV</p>
+      <div className="relative flex min-h-dvh items-center justify-center overflow-hidden">
+        <div className="zev-hero-glow" />
+        <div className="zev-splash-logo flex flex-col items-center">
+          <p className="text-3xl font-black tracking-[0.32em]">ZEV</p>
+          <p className="mt-2 text-[11px] font-bold tracking-[0.4em] text-purple-300">LOCK</p>
+        </div>
       </div>
     );
   }
 
   if (!status) {
     // Session invalid/expired/absent → license-first flow.
-    return <LicenseScreen onActivated={(s) => { setStatus(s); setError(null); }} />;
+    return <LicenseScreen onActivated={(s) => { setStatus(s); setError(null); setWelcome(true); }} />;
   }
 
   return (
@@ -122,11 +133,20 @@ export default function AppShell() {
             />
           )}
           {tab === "realtime" && (
-            <RealtimeTab status={status} loading={false} error={error} activity={activity} onRetry={() => void refresh()} />
+            <RealtimeTab status={status} loading={false} error={error} onRetry={() => void refresh()} />
           )}
         </motion.main>
       </AnimatePresence>
       <BottomNav tab={tab} onChange={setTab} />
+      <AnimatePresence>
+        {welcome && (
+          <WelcomeModal
+            plan={status.license.plan}
+            device={`${status.device.platform} · ${status.device.status}`}
+            onEnter={() => setWelcome(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

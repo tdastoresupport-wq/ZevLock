@@ -21,6 +21,6 @@
   ],
   "vars": {
     "DEFAULT_DEVICE_LIMIT": "1",
-    "DEFAULT_PLAN": "PREMIUM VIP"
+    "DEFAULT_PLAN": "Premium"
   }
 }

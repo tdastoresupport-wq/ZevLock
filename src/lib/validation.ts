@@ -22,6 +22,7 @@ const optionalBooleans = {
   sensitivity_boost: z.boolean().optional(),
   screen_boost: z.boolean().optional(),
   headshot_fix: z.boolean().optional(),
+  fix_recoil: z.boolean().optional(),
 };
 
 export const updateFunctionsSchema = z.object({
@@ -29,7 +30,7 @@ export const updateFunctionsSchema = z.object({
 });
 
 export const createLicenseSchema = z.object({
-  plan: z.string().trim().min(1).max(64).default("PREMIUM VIP"),
+  plan: z.string().trim().min(1).max(64).default("Premium"),
   duration_days: z.number().int().min(1).max(3650).default(30),
   device_limit: z.number().int().min(1).max(10).default(1),
 });

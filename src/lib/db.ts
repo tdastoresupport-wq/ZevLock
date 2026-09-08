@@ -52,17 +52,17 @@ function mem(): MemDb {
   if (!g.__zevMem) {
     g.__zevMem = {
       licenses: new Map([
-        ["lic_demo_vip1", { id: "lic_demo_vip1", key: "ZEV-DEMO-2026-VIP1", plan: "PREMIUM VIP", status: "ACTIVE", device_limit: 1, created_at: "2026-01-10T08:00:00.000Z", activated_at: "2026-01-10T08:05:00.000Z", expires_at: "2031-03-16T00:00:00.000Z" }],
-        ["lic_demo_expired", { id: "lic_demo_expired", key: "ZEV-EXP1-RED0-0001", plan: "PREMIUM VIP", status: "EXPIRED", device_limit: 1, created_at: "2025-01-10T08:00:00.000Z", activated_at: "2025-01-10T08:05:00.000Z", expires_at: "2025-02-10T00:00:00.000Z" }],
-        ["lic_demo_unused", { id: "lic_demo_unused", key: "ZEV-NEW-USER-000001", plan: "PREMIUM VIP", status: "UNUSED", device_limit: 1, created_at: "2026-09-01T08:00:00.000Z", activated_at: null, expires_at: null }],
+        ["lic_demo_vip1", { id: "lic_demo_vip1", key: "ZEV-DEMO-2026-VIP1", plan: "Premium", status: "ACTIVE", device_limit: 1, created_at: "2026-01-10T08:00:00.000Z", activated_at: "2026-01-10T08:05:00.000Z", expires_at: "2031-03-16T00:00:00.000Z" }],
+        ["lic_demo_expired", { id: "lic_demo_expired", key: "ZEV-EXP1-RED0-0001", plan: "Premium", status: "EXPIRED", device_limit: 1, created_at: "2025-01-10T08:00:00.000Z", activated_at: "2025-01-10T08:05:00.000Z", expires_at: "2025-02-10T00:00:00.000Z" }],
+        ["lic_demo_unused", { id: "lic_demo_unused", key: "ZEV-NEW-USER-000001", plan: "Premium", status: "UNUSED", device_limit: 1, created_at: "2026-09-01T08:00:00.000Z", activated_at: null, expires_at: null }],
       ]),
       devices: new Map(),
       sessions: new Map(),
       functions: new Map([
-        ["lic_demo_vip1", { aimlock_head: true, stability_assist: true, aim_hold: false, aim_lockdown: false, sensitivity_boost: false, screen_boost: false, headshot_fix: false }],
+        ["lic_demo_vip1", { aimlock_head: true, stability_assist: true, aim_hold: false, aim_lockdown: false, sensitivity_boost: false, screen_boost: false, headshot_fix: false, fix_recoil: false }],
       ]),
       logs: [
-        { id: 1, type: "license.activated", license_id: "lic_demo_vip1", metadata: '{"plan":"PREMIUM VIP"}', created_at: "2026-01-10T08:05:00.000Z" },
+        { id: 1, type: "license.activated", license_id: "lic_demo_vip1", metadata: '{"plan":"Premium"}', created_at: "2026-01-10T08:05:00.000Z" },
         { id: 2, type: "function.enabled", license_id: "lic_demo_vip1", metadata: '{"function":"aimlock_head"}', created_at: "2026-09-06T22:31:04.000Z" },
         { id: 3, type: "function.enabled", license_id: "lic_demo_vip1", metadata: '{"function":"stability_assist"}', created_at: "2026-09-06T22:31:17.000Z" },
         { id: 4, type: "function.disabled", license_id: "lic_demo_vip1", metadata: '{"function":"aim_hold"}', created_at: "2026-09-06T22:33:02.000Z" },
@@ -91,7 +91,7 @@ function rowToLicense(r: Record<string, unknown>): License {
 
 const EMPTY_FUNCTIONS: FunctionStates = {
   aimlock_head: false, stability_assist: false, aim_hold: false, aim_lockdown: false,
-  sensitivity_boost: false, screen_boost: false, headshot_fix: false,
+  sensitivity_boost: false, screen_boost: false, headshot_fix: false, fix_recoil: false,
 };
 
 function rowToFunctions(r: Record<string, unknown>): FunctionStates {
@@ -103,6 +103,7 @@ function rowToFunctions(r: Record<string, unknown>): FunctionStates {
     sensitivity_boost: Number(r.sensitivity_boost) === 1,
     screen_boost: Number(r.screen_boost) === 1,
     headshot_fix: Number(r.headshot_fix) === 1,
+    fix_recoil: Number(r.fix_recoil ?? 0) === 1,
   };
 }
 
@@ -241,18 +242,19 @@ export async function setFunctions(licenseId: string, deviceId: string | null, p
   const next = { ...cur, ...patch };
   const toInt = (b: boolean) => (b ? 1 : 0);
   await d1.prepare(
-    `INSERT INTO function_states (id, license_id, device_id, aimlock_head, stability_assist, aim_hold, aim_lockdown, sensitivity_boost, screen_boost, headshot_fix, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO function_states (id, license_id, device_id, aimlock_head, stability_assist, aim_hold, aim_lockdown, sensitivity_boost, screen_boost, headshot_fix, fix_recoil, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(license_id, device_id) DO UPDATE SET
        aimlock_head = excluded.aimlock_head, stability_assist = excluded.stability_assist,
        aim_hold = excluded.aim_hold, aim_lockdown = excluded.aim_lockdown,
        sensitivity_boost = excluded.sensitivity_boost, screen_boost = excluded.screen_boost,
-       headshot_fix = excluded.headshot_fix, updated_at = excluded.updated_at`
+       headshot_fix = excluded.headshot_fix, fix_recoil = excluded.fix_recoil,
+       updated_at = excluded.updated_at`
   ).bind(
     `fs_${licenseId}_${deviceId ?? "shared"}`, licenseId, deviceId,
     toInt(next.aimlock_head), toInt(next.stability_assist), toInt(next.aim_hold),
     toInt(next.aim_lockdown), toInt(next.sensitivity_boost), toInt(next.screen_boost),
-    toInt(next.headshot_fix), now()
+    toInt(next.headshot_fix), toInt(next.fix_recoil), now()
   ).run();
   return next;
 }

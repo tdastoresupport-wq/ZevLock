@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { KeyRound, ShieldCheck, CircleAlert, Clock3 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getDeviceId, getPlatform } from "@/lib/device";
+import { Avatar } from "./HeroArt";
 import type { LicenseStatusResponse } from "@/lib/types";
 
 type Phase = "input" | "checking" | "expired" | "error" | "success";
@@ -56,9 +57,7 @@ export function LicenseScreen({ onActivated }: { onActivated: (s: LicenseStatusR
     <div className="zev-top-pad flex min-h-dvh flex-col px-5 pb-10">
       {/* Branding */}
       <div className="mt-10 flex flex-col items-center text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-[26px] border border-violet-400/30 bg-gradient-to-br from-violet-600/30 to-cyan-500/10 shadow-[0_0_40px_rgba(139,92,246,0.25)]">
-          <span className="text-2xl font-black tracking-widest">Z</span>
-        </div>
+        <Avatar size={84} />
         <h1 className="mt-5 text-[34px] font-black tracking-[0.28em]">ZEV</h1>
         <p className="mt-1 text-sm font-semibold tracking-[0.3em] text-cyan-300/90">LOCK</p>
         <p className="mt-4 max-w-[280px] text-[13px] leading-relaxed text-slate-400">
@@ -70,9 +69,9 @@ export function LicenseScreen({ onActivated }: { onActivated: (s: LicenseStatusR
       <div className="zev-card mt-8 p-5">
         <label className="text-[11px] font-semibold tracking-[0.18em] text-slate-400">LICENSE KEY</label>
         <div className="relative mt-2">
-          <KeyRound size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+          <KeyRound size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 shrink-0 text-purple-300/70" />
           <input
-            className="zev-input pl-11 uppercase"
+            className="zev-input pl-12 font-mono uppercase placeholder:text-slate-600 placeholder:tracking-[0.08em]"
             placeholder="ZEV-XXXX-XXXX-XXXX"
             value={key}
             maxLength={18}
@@ -120,9 +119,7 @@ export function LicenseScreen({ onActivated }: { onActivated: (s: LicenseStatusR
         </p>
       </div>
 
-      <p className="mt-auto pt-8 text-center text-[11px] text-slate-600">
-        Device binding is privacy-friendly — a random app ID, no fingerprinting.
-      </p>
+      <div className="mt-auto pt-8" />
     </div>
   );
 }

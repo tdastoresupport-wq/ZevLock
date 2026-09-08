@@ -76,10 +76,13 @@ export async function persistToggle(
     const res = await api.updateFunctions({ [key]: next });
     apply(res.functions);
     const meta = FUNCTIONS.find((f) => f.key === key);
+    const nowIso = new Date().toISOString();
     pushActivity({
       id: `${Date.now()}-${key}`,
-      at: fmtTime(new Date().toISOString()),
-      label: `${meta?.name ?? key} ${next ? "enabled" : "disabled"}`,
+      at: fmtTime(nowIso),
+      iso: nowIso,
+      label: meta?.name ?? key,
+      action: next ? "Enabled" : "Disabled",
       kind: next ? "enabled" : "disabled",
     });
   } catch (e) {

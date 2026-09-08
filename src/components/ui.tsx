@@ -42,7 +42,7 @@ export function Toggle({ on, disabled, onChange }: { on: boolean; disabled?: boo
       onClick={onChange}
       className={cn(
         "relative h-8 w-[52px] shrink-0 rounded-full border transition-colors duration-200",
-        on ? "border-violet-400/60 bg-gradient-to-r from-violet-500 to-cyan-400" : "border-slate-600/60 bg-slate-800",
+        on ? "border-purple-300/60 bg-gradient-to-r from-violet-600 to-purple-400" : "border-slate-600/60 bg-slate-800",
         disabled && "opacity-50"
       )}
       style={{ minWidth: 52, minHeight: 32 }}

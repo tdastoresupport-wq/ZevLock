@@ -42,6 +42,13 @@ Local dev without a D1 binding uses an **in-memory demo store** seeded like
 - Unused: `ZEV-NEW-USER-000001`
 - Admin: any request with header `x-admin-token: <ADMIN_API_TOKEN>` (default `dev-only-admin-token-change-me`)
 
+## Character artwork
+
+The Home hero, license screen avatar, welcome popup, and PWA avatar all use
+`public/zev-character.jpg`. Drop the Zev artwork file there (square-ish, ≥512px —
+purple art works best with the theme). Until then, a purple gradient + glow
+fallback is shown automatically and every icon reference keeps working.
+
 ## D1 setup
 
 ```bash

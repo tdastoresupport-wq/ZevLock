@@ -291,7 +291,7 @@ function Licenses() {
 }
 
 function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [plan, setPlan] = useState("PREMIUM VIP");
+  const [plan, setPlan] = useState("Premium");
   const [days, setDays] = useState(30);
   const [limit, setLimit] = useState(1);
   const [result, setResult] = useState<License | null>(null);
@@ -323,9 +323,9 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           <div>
             <Label>PLAN</Label>
             <select value={plan} onChange={(e) => setPlan(e.target.value)} className="zev-input mt-1.5 !tracking-normal">
-              <option>PREMIUM VIP</option>
-              <option>VIP PLUS</option>
-              <option>TRIAL</option>
+              <option>Premium</option>
+              <option>VIP Plus</option>
+              <option>Trial</option>
             </select>
           </div>
           <div>

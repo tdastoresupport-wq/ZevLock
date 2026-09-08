@@ -6,7 +6,7 @@ INSERT OR IGNORE INTO licenses (id, key, plan, status, device_limit, created_at,
 VALUES (
   'lic_demo_vip1',
   'ZEV-DEMO-2026-VIP1',
-  'PREMIUM VIP',
+  'Premium',
   'ACTIVE',
   1,
   '2026-01-10T08:00:00.000Z',
@@ -18,7 +18,7 @@ INSERT OR IGNORE INTO licenses (id, key, plan, status, device_limit, created_at,
 VALUES (
   'lic_demo_expired',
   'ZEV-EXP1-RED0-0001',
-  'PREMIUM VIP',
+  'Premium',
   'EXPIRED',
   1,
   '2025-01-10T08:00:00.000Z',
@@ -30,7 +30,7 @@ INSERT OR IGNORE INTO licenses (id, key, plan, status, device_limit, created_at,
 VALUES (
   'lic_demo_unused',
   'ZEV-NEW-USER-000001',
-  'PREMIUM VIP',
+  'Premium',
   'UNUSED',
   1,
   '2026-09-01T08:00:00.000Z',
@@ -44,7 +44,7 @@ VALUES
   ('fs_demo_vip1', 'lic_demo_vip1', NULL, 1, 1, 0, 0, 0, 0, 0, '2026-09-06T22:31:17.000Z');
 
 INSERT OR IGNORE INTO logs (type, license_id, device_id, metadata, created_at) VALUES
-  ('license.activated', 'lic_demo_vip1', NULL, '{"plan":"PREMIUM VIP"}', '2026-01-10T08:05:00.000Z'),
+  ('license.activated', 'lic_demo_vip1', NULL, '{"plan":"Premium"}', '2026-01-10T08:05:00.000Z'),
   ('function.enabled', 'lic_demo_vip1', NULL, '{"function":"aimlock_head"}', '2026-09-06T22:31:04.000Z'),
   ('function.enabled', 'lic_demo_vip1', NULL, '{"function":"stability_assist"}', '2026-09-06T22:31:17.000Z'),
   ('function.disabled', 'lic_demo_vip1', NULL, '{"function":"aim_hold"}', '2026-09-06T22:33:02.000Z');
