@@ -84,6 +84,7 @@ export interface ProfileHistoryItem {
   identifier: string;
   uuid: string;
   created_at: string;
+  downloaded: boolean;
 }
 
 export interface GeneratedProfile {
@@ -98,9 +99,14 @@ export interface GeneratedProfile {
 
 export const profiles = {
   generate: (preset: string) =>
-    req<GeneratedProfile>(`/api/profiles/generate`, {
+    req<GeneratedProfile>(`/api/mobileconfig/generate`, {
       method: "POST",
       body: JSON.stringify({ preset }),
     }),
+  validate: (preset: string) =>
+    req<{ ok: boolean; errors: string[]; schemaVersion: string; identifier: string; uuid: string }>(
+      `/api/mobileconfig/validate`, { method: "POST", body: JSON.stringify({ preset }) }
+    ),
+  downloadUrl: (uuid: string) => `/api/mobileconfig/download?uuid=${encodeURIComponent(uuid)}`,
   history: () => req<{ items: ProfileHistoryItem[] }>(`/api/profiles/history`),
 };

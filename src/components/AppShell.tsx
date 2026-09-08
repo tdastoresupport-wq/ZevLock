@@ -219,7 +219,7 @@ export default function AppShell() {
               />
             )}
             {tab === "realtime" && (
-              <RealtimeTab status={status} loading={false} error={error} activity={activity} onRetry={() => void refresh()} />
+              <RealtimeTab status={status} loading={false} error={error} activity={activity} onSync={() => refresh()} />
             )}
             {tab === "account" && (
               <AccountTab

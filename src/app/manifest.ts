@@ -6,6 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Zev",
     description: "Zev Lock — premium license platform",
     start_url: "/",
+    id: "/",
+    scope: "/",
     display: "standalone",
     orientation: "portrait",
     background_color: "#05060f",

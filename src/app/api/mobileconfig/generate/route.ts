@@ -12,10 +12,10 @@ import {
 } from "@/lib/mobileconfig";
 
 /**
- * POST /api/profiles/generate — build a signed install profile for this license.
- * Requires a valid session + ACTIVE license (verified server-side, never trusted
- * from the browser). Rate-limited, audited. Returns the XML for client-side
- * validation + download (iOS installs it via Settings — never silently).
+ * POST /api/mobileconfig/generate — canonical generation endpoint.
+ * Requires a valid session + ACTIVE license (verified server-side).
+ * Enforces the admin preset allowlist, rate limits, and audit logging.
+ * Returns the XML so the client validates again before download.
  */
 export async function POST(req: NextRequest) {
   const token = getSessionToken(req);
@@ -43,10 +43,12 @@ export async function POST(req: NextRequest) {
   try {
     profile = buildMobileconfig({ preset, origin });
   } catch {
+    await addLog("profile.failed", lic.id, null, { preset, reason: "build_failed" });
     return NextResponse.json({ error: "Could not build profile", code: "build_failed" }, { status: 500 });
   }
   const check = validateMobileconfig(profile.xml, preset);
   if (!check.ok) {
+    await addLog("profile.failed", lic.id, null, { preset, reason: "validation_failed" });
     return NextResponse.json({ error: "Generated profile failed validation", code: "invalid_profile" }, { status: 500 });
   }
 

@@ -12,13 +12,13 @@ import { cn } from "@/lib/cn";
 
 /** Realtime tab — live APP telemetry only (session, events, toggles). No game/hardware data, ever. */
 export function RealtimeTab({
-  status, loading, error, activity, onRetry,
+  status, loading, error, activity, onSync,
 }: {
   status: LicenseStatusResponse | null;
   loading: boolean;
   error: string | null;
   activity: ActivityEvent[];
-  onRetry: () => void;
+  onSync: () => Promise<unknown>;
 }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [syncing, setSyncing] = useState(false);
@@ -40,7 +40,7 @@ export function RealtimeTab({
       </div>
     );
   }
-  if (error || !status) return <ErrorState message={error ?? "Couldn't load realtime status."} onRetry={onRetry} />;
+  if (error || !status) return <ErrorState message={error ?? "Couldn't load realtime status."} onRetry={() => { void onSync().catch(() => {}); }} />;
 
   const licenseOk = status.license.status === "ACTIVE";
   const remaining = new Date(status.session_expires_at).getTime() - nowMs;
@@ -51,8 +51,8 @@ export function RealtimeTab({
   function sync() {
     playClick();
     setSyncing(true);
-    onRetry();
-    setTimeout(() => setSyncing(false), 900);
+    // Spinner follows the real request — no fake delays.
+    void onSync().catch(() => {}).finally(() => setSyncing(false));
   }
 
   return (

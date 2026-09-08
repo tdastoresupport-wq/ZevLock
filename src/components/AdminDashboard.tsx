@@ -12,7 +12,7 @@ import { fmtDate, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { License } from "@/lib/types";
 
-type AdminTab = "overview" | "licenses" | "devices" | "logs";
+type AdminTab = "overview" | "licenses" | "devices" | "logs" | "templates";
 
 interface AdminMe { id: string; email: string; name: string; role: string }
 interface Stats {
@@ -136,7 +136,7 @@ export function AdminDashboard() {
       <p className="mt-1 text-[12px] text-slate-500">{me.name} · {me.email}</p>
 
       <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto" role="tablist" aria-label="Admin sections">
-        {(["overview", "licenses", "devices", "logs"] as AdminTab[]).map((t) => (
+        {(["overview", "licenses", "templates", "devices", "logs"] as AdminTab[]).map((t) => (
           <button
             key={t}
             role="tab"
@@ -155,6 +155,7 @@ export function AdminDashboard() {
       <div className="mt-4">
         {tab === "overview" && <Overview />}
         {tab === "licenses" && <Licenses role={me.role} />}
+        {tab === "templates" && <Templates role={me.role} />}
         {tab === "devices" && <Devices />}
         {tab === "logs" && <Logs />}
       </div>
@@ -686,6 +687,120 @@ function KeyEditor({ license, onClose, onSaved }: {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------ MobileConfig templates ------------------------------ */
+
+interface TemplateRow {
+  preset: string;
+  label: string;
+  enabled: boolean;
+  stats: { created: number; downloaded: number };
+}
+
+function Templates({ role }: { role: string }) {
+  const [schema, setSchema] = useState("…");
+  const [rows, setRows] = useState<TemplateRow[]>([]);
+  const [activity, setActivity] = useState<LogRow[]>([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const [t, l] = await Promise.all([
+        adminReq<{ schemaVersion: string; presets: TemplateRow[] }>("/api/admin/mobileconfig/templates"),
+        adminReq<{ items: LogRow[] }>("/api/admin/logs?limit=50"),
+      ]);
+      setSchema(t.schemaVersion);
+      setRows(t.presets);
+      setActivity(l.items.filter((x) => x.type.startsWith("profile.") || x.type.startsWith("admin.preset")));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load templates");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function toggle(preset: string, enabled: boolean) {
+    try {
+      const res = await adminReq<{ presets: { preset: string; enabled: boolean }[] }>(
+        "/api/admin/mobileconfig/templates",
+        { method: "POST", body: JSON.stringify({ preset, enabled }) }
+      );
+      setRows((prev) => prev.map((r) => {
+        const next = res.presets.find((x) => x.preset === r.preset);
+        return next ? { ...r, enabled: next.enabled } : r;
+      }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Toggle failed");
+    }
+  }
+
+  if (error) return <ErrorState message={error} onRetry={() => void load()} />;
+  if (loading) return (<><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></>);
+
+  return (
+    <div className="space-y-3">
+      <Card>
+        <div className="flex items-center justify-between">
+          <Label>MOBILECONFIG TEMPLATES</Label>
+          <span className="font-mono text-[11px] text-slate-500">schema v{schema}</span>
+        </div>
+        <div className="mt-2 space-y-2">
+          {rows.map((r) => (
+            <div key={r.preset} className="flex items-center gap-3 rounded-xl border border-white/[0.07] bg-black/20 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[13.5px] font-black">{r.label}</p>
+                <p className="tnum mt-0.5 font-mono text-[11px] text-slate-500">
+                  {r.stats.created} generated · {r.stats.downloaded} downloaded
+                </p>
+              </div>
+              {canDestroy(role) ? (
+                <button
+                  role="switch"
+                  aria-checked={r.enabled}
+                  aria-label={`${r.label} preset ${r.enabled ? "enabled" : "disabled"}`}
+                  onClick={() => void toggle(r.preset, !r.enabled)}
+                  className={cn(
+                    "relative h-8 w-[52px] shrink-0 rounded-full border transition-colors",
+                    r.enabled ? "border-purple-300/60 bg-gradient-to-r from-violet-600 to-purple-400" : "border-slate-600/60 bg-slate-800"
+                  )}
+                >
+                  <span className={cn(
+                    "absolute top-[3px] h-[24px] w-[24px] rounded-full bg-white shadow",
+                    r.enabled ? "right-[3px]" : "left-[3px]"
+                  )} />
+                </button>
+              ) : (
+                <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-black", r.enabled ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 text-slate-500")}>
+                  {r.enabled ? "ON" : "OFF"}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+        {!canDestroy(role) && (
+          <p className="mt-2 text-[11px] text-slate-500">Your role can inspect templates but cannot modify them.</p>
+        )}
+      </Card>
+      <Card>
+        <Label>GENERATION ACTIVITY</Label>
+        <div className="mt-2 space-y-2">
+          {activity.slice(0, 12).map((l) => (
+            <div key={l.id} className="flex items-center justify-between gap-2 text-[12px]">
+              <span className="truncate font-mono text-slate-300">{l.type}</span>
+              <span className="shrink-0 font-mono text-[10px] text-slate-500">{new Date(l.created_at).toLocaleString("en-GB", { hour12: false })}</span>
+            </div>
+          ))}
+          {activity.length === 0 && <p className="text-[13px] text-slate-500">No profile activity yet.</p>}
+        </div>
+      </Card>
     </div>
   );
 }

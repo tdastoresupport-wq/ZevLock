@@ -225,6 +225,210 @@ def main():
         all(i.get("identifier", "").startswith("com.zevlock.profile.") for i in items),
     )
 
+    print("== 6. server validate endpoint ==")
+    s, rep = api(
+        "POST", "/api/mobileconfig/validate", {"preset": "standard"}, token=tok
+    )
+    check("validate 200 + ok", s == 200 and rep.get("ok") is True, f"got {s} {rep}")
+    check("validate schema version", rep.get("schemaVersion") == "1.0.0")
+    check("validate uuid v4", bool(UUID_V4.match(rep.get("uuid", ""))))
+    s, _ = api("POST", "/api/mobileconfig/validate", {"preset": "standard"})
+    check("validate no session -> 401", s == 401, f"got {s}")
+    s, _ = api(
+        "POST",
+        "/api/mobileconfig/validate",
+        {"preset": "standard", "PayloadContent": []},
+        token=tok,
+    )
+    check("validate arbitrary keys -> 400", s == 400, f"got {s}")
+
+    print("== 7. download endpoint ==")
+    s, gen = api("POST", "/api/mobileconfig/generate", {"preset": "legacy"}, token=tok)
+    uuid = gen.get("uuid", "")
+    import urllib.request as _url
+
+    req = _url.Request(
+        f"{BASE}/api/mobileconfig/download?uuid={uuid}",
+        headers={"Authorization": f"Bearer {tok}"},
+    )
+    try:
+        with _url.urlopen(req, timeout=15) as r:
+            body = r.read()
+            ctype = r.headers.get("Content-Type", "")
+            disp = r.headers.get("Content-Disposition", "")
+            code = r.status
+    except urllib.error.HTTPError as e:
+        body, ctype, disp, code = b"", "", "", e.code
+    check("download 200", code == 200, f"got {code}")
+    check("download content type", ctype == "application/x-apple-aspen-config", ctype)
+    check(
+        "download disposition",
+        disp == 'attachment; filename="zev-lock-legacy.mobileconfig"',
+        disp,
+    )
+    check("download bytes identical", body.decode() == gen.get("xml", ""))
+    s, hist = api("GET", "/api/profiles/history", token=tok)
+    mine = [i for i in hist.get("items", []) if i.get("uuid") == uuid]
+    check(
+        "history marks downloaded", len(mine) == 1 and mine[0].get("downloaded") is True
+    )
+    s, _ = api("GET", "/api/profiles/history", token=tok)
+    req2 = _url.Request(
+        f"{BASE}/api/mobileconfig/download?uuid=not-a-uuid",
+        headers={"Authorization": f"Bearer {tok}"},
+    )
+    try:
+        with _url.urlopen(req2, timeout=15) as r2:
+            code2 = r2.status
+    except urllib.error.HTTPError as e:
+        code2 = e.code
+    check("download bad uuid -> 404", code2 == 404, f"got {code2}")
+
+    print("== 8. expired / revoked licenses ==")
+    s, _ = api(
+        "POST",
+        "/api/license/activate",
+        {
+            "key": "ZEV-EXP1-RED0-0001",
+            "device_identifier": "mc_expired_dev",
+            "platform": "iPhone",
+        },
+    )
+    check("expired cannot activate -> 403", s == 403, f"got {s}")
+    s, adm = api(
+        "POST", "/api/admin/login", {"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}
+    )
+    check("admin login", s == 200, f"got {s}")
+    atok = adm.get("token", "")
+    A = {"x-admin-token": atok}
+
+    def _admin(method, path, body=None):
+        data = json.dumps(body).encode() if body is not None else None
+        r = urllib.request.Request(BASE + path, data=data, method=method)
+        r.add_header("Content-Type", "application/json")
+        r.add_header("x-admin-token", atok)
+        try:
+            with urllib.request.urlopen(r, timeout=15) as resp:
+                raw = resp.read().decode()
+                return resp.status, (json.loads(raw) if raw else {})
+        except urllib.error.HTTPError as e:
+            try:
+                p = json.loads(e.read().decode() or "{}")
+            except Exception:
+                p = {}
+            return e.code, p
+
+    s, nk = _admin(
+        "POST",
+        "/api/admin/licenses",
+        {"plan": "Premium", "duration_preset": "day", "display_name": "MCTest"},
+    )
+    key2 = nk.get("license", {}).get("key", "")
+    s2, act2 = api(
+        "POST",
+        "/api/license/activate",
+        {"key": key2, "device_identifier": "mc_revoke_dev", "platform": "iPhone"},
+    )
+    tok2 = act2.get("token", "")
+    _admin("POST", f"/api/admin/licenses/{nk['license']['id']}/revoke")
+    s, _ = api("POST", "/api/mobileconfig/generate", {"preset": "standard"}, token=tok2)
+    check("revoked license -> 403", s == 403, f"got {s}")
+    lid = nk["license"]["id"]
+    _admin("DELETE", f"/api/admin/licenses/{lid}")
+
+    print("== 9. plan validation + IDOR ==")
+    s, _ = _admin(
+        "POST", "/api/admin/licenses", {"plan": "X" * 100, "duration_preset": "day"}
+    )
+    check("100-char plan -> 400", s == 400, f"got {s}")
+    s, nk2 = _admin(
+        "POST",
+        "/api/admin/licenses",
+        {"plan": "Premium", "duration_preset": "day", "display_name": "MCIdor"},
+    )
+    s2, act3 = api(
+        "POST",
+        "/api/license/activate",
+        {
+            "key": nk2["license"]["key"],
+            "device_identifier": "mc_idor_dev",
+            "platform": "iPhone",
+        },
+    )
+    tok3 = act3.get("token", "")
+    req3 = _url.Request(
+        f"{BASE}/api/mobileconfig/download?uuid={uuid}",
+        headers={"Authorization": f"Bearer {tok3}"},
+    )
+    try:
+        with _url.urlopen(req3, timeout=15) as r3:
+            code3 = r3.status
+    except urllib.error.HTTPError as e:
+        code3 = e.code
+    check("other license uuid -> 404 (IDOR safe)", code3 == 404, f"got {code3}")
+    _admin("DELETE", f"/api/admin/licenses/{nk2['license']['id']}")
+
+    print("== 10. admin templates ==")
+    s, tpl = _admin("GET", "/api/admin/mobileconfig/templates")
+    check(
+        "templates 200 + schema",
+        s == 200 and tpl.get("schemaVersion") == "1.0.0",
+        f"got {s}",
+    )
+    check("templates 3 presets", s == 200 and len(tpl.get("presets", [])) == 3)
+    s, _ = _admin(
+        "POST",
+        "/api/admin/mobileconfig/templates",
+        {"preset": "high-hz", "enabled": False},
+    )
+    check("disable high-hz", s == 200, f"got {s}")
+    s, _ = api("POST", "/api/mobileconfig/generate", {"preset": "high-hz"}, token=tok)
+    check("disabled preset -> 403", s == 403, f"got {s}")
+    _admin(
+        "POST",
+        "/api/admin/mobileconfig/templates",
+        {"preset": "high-hz", "enabled": True},
+    )
+    s, _ = api("GET", "/api/admin/mobileconfig/templates")
+    check("templates no session -> 401", s == 401, f"got {s}")
+
+    print("== 11. validate rate limit (31 rapid) ==")
+    codes = []
+    for _ in range(31):
+        s, _ = api(
+            "POST", "/api/mobileconfig/validate", {"preset": "standard"}, token=tok
+        )
+        codes.append(s)
+    check("validate rate-limited with 429", 429 in codes, f"tail={codes[-3:]}")
+
+    print("== 12. PWA manifest + assets ==")
+    try:
+        with _url.urlopen(f"{BASE}/manifest.webmanifest", timeout=15) as r:
+            man = json.loads(r.read().decode())
+            mcode = r.status
+    except Exception as e:
+        man, mcode = {}, f"ERR {e}"
+    check("manifest 200", mcode == 200, f"got {mcode}")
+    check("manifest standalone", man.get("display") == "standalone")
+    check(
+        "manifest scope+start_url",
+        man.get("start_url") == "/" and man.get("scope") == "/",
+    )
+    check(
+        "manifest theme colors",
+        man.get("theme_color") == "#05060f"
+        and man.get("background_color") == "#05060f",
+    )
+    check(
+        "manifest icons", isinstance(man.get("icons"), list) and len(man["icons"]) >= 2
+    )
+    try:
+        with _url.urlopen(f"{BASE}/icon.svg", timeout=15) as r:
+            icode = r.status
+    except urllib.error.HTTPError as e:
+        icode = e.code
+    check("icon.svg 200", icode == 200, f"got {icode}")
+
     print(f"\n{PASS}/{PASS + FAIL} passed")
     return 1 if FAIL else 0
 

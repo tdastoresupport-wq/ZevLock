@@ -26,6 +26,9 @@ export const PROFILE_APP_NAME = "Zev Lock";
 export const PROFILE_ORG = "Duc Anh Zev - Đức Anh Zev Trùm File";
 export const PROFILE_CONTENT_TYPE = "application/x-apple-aspen-config";
 
+/** Version of the Zev profile schema (preset definitions + builder output). */
+export const MOBILECONFIG_SCHEMA_VERSION = "1.0.0";
+
 interface PresetDef {
   preset: ProfilePreset;
   clipLabel: string;
@@ -54,9 +57,82 @@ const PRESETS: Record<ProfilePreset, PresetDef> = {
     preset: "high-hz",
     clipLabel: "Zev Lock",
     description:
-      "Zev Lock install profile (High-Hz, 7 days). Adds the Zev Lock shortcut to your Home Screen. " +
+      "Zev Lock install profile (Promotion High-Hz, 7 days). Adds the Zev Lock shortcut to your Home Screen. " +
       "Does not change system settings and has no gameplay effects. After downloading, install it in Settings.",
     durationSeconds: 7 * 86_400,
+  },
+};
+
+/**
+ * Touch Accommodations honesty boundary.
+ * There is no public iOS configuration-profile schema available here for
+ * settings like Hold Duration / Ignore Repeat / Touch Accommodations toggles,
+ * so they are marked unsupported-by-public-profile-schema: the profile XML
+ * never claims to configure them, and the PWA presents them as MANUAL iOS
+ * steps instead. (Rule: never invent Apple payload keys.)
+ */
+export interface UnsupportedSetting {
+  name: string;
+  manualPath: string;
+  reason: string;
+}
+
+export const UNSUPPORTED_TOUCH_SETTINGS: UnsupportedSetting[] = [
+  {
+    name: "Touch Accommodations",
+    manualPath: "Settings → Accessibility → Touch → Touch Accommodations",
+    reason: "No public MobileConfig schema available — configure manually in iOS Accessibility.",
+  },
+  {
+    name: "Hold Duration",
+    manualPath: "Settings → Accessibility → Touch → Touch Accommodations → Hold Duration",
+    reason: "No public MobileConfig schema available — configure manually in iOS Accessibility.",
+  },
+  {
+    name: "Ignore Repeat",
+    manualPath: "Settings → Accessibility → Touch → Touch Accommodations → Ignore Repeat",
+    reason: "No public MobileConfig schema available — configure manually in iOS Accessibility.",
+  },
+];
+
+/** Owner-provided marketing card content (PWA UI ONLY — never inside the plist). */
+export interface PresetMarketing {
+  preset: ProfilePreset;
+  title: string;
+  tagline: string;
+  deviceSupport: string;
+  price: string;
+  tiktok: string;
+  manualNote: string;
+}
+
+export const PRESET_MARKETING: Record<ProfilePreset, PresetMarketing> = {
+  legacy: {
+    preset: "legacy",
+    title: "Legacy 60Hz",
+    tagline: "App hỗ trợ cấu hình phản hồi cảm ứng của iPhone.",
+    deviceSupport: "Legacy 60Hz",
+    price: "50 000 VNĐ → 500 000 VNĐ",
+    tiktok: "dvmxhontop",
+    manualNote: "Some touch settings must be configured manually in iOS Accessibility.",
+  },
+  standard: {
+    preset: "standard",
+    title: "Standard OLED 60Hz",
+    tagline: "App hỗ trợ cấu hình phản hồi cảm ứng của iPhone.",
+    deviceSupport: "Standard OLED 60Hz",
+    price: "50 000 VNĐ → 500 000 VNĐ",
+    tiktok: "dvmxhontop",
+    manualNote: "Some touch settings must be configured manually in iOS Accessibility.",
+  },
+  "high-hz": {
+    preset: "high-hz",
+    title: "Promotion High-Hz",
+    tagline: "App hỗ trợ cấu hình phản hồi cảm ứng của iPhone.",
+    deviceSupport: "Promotion High-Hz",
+    price: "50 000 VNĐ → 500 000 VNĐ",
+    tiktok: "dvmxhontop",
+    manualNote: "Some touch settings must be configured manually in iOS Accessibility.",
   },
 };
 
