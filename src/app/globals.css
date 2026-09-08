@@ -191,3 +191,57 @@ body {
   60% { opacity: 1; transform: scale(1.02); filter: blur(0); }
   100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 26px rgba(168, 85, 247, 0.65)); }
 }
+
+/* ---- accessibility: visible keyboard focus ---- */
+:focus-visible {
+  outline: 2px solid #c084fc;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ---- live pulse dot (realtime) ---- */
+.zev-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #34d399;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.9);
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+
+/* ---- cinematic light sweep (welcome) ---- */
+.zev-sweep {
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(216, 180, 254, 0.28), transparent);
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+/* ---- compact status strip ---- */
+.zev-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 2px;
+  border-bottom: 1px solid rgba(148, 163, 255, 0.09);
+  font-size: 13px;
+}
+.zev-strip:last-child { border-bottom: 0; }
+
+/* ---- tabular numerals for timers/counters ---- */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ---- respect reduced motion globally ---- */
+@media (prefers-reduced-motion: reduce) {
+  .zev-splash-logo, .zev-live-dot, .skeleton { animation: none !important; }
+  .zev-progress > span { transition: none; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

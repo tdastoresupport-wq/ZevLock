@@ -1,130 +1,163 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, LogOut, Power, Smartphone } from "lucide-react";
-import { Card, ErrorState, Label, Skeleton, StatusDot } from "./ui";
+import { motion } from "framer-motion";
+import { KeyRound, LogOut, Power, RefreshCw, SlidersHorizontal, Volume2, VolumeX } from "lucide-react";
+import { ErrorState, SectionHeader, Skeleton, StatusDot } from "./ui";
 import { Avatar, HeroArt } from "./HeroArt";
+import { HealthRing } from "./HealthRing";
 import { LicenseModal } from "./modals";
 import { fmtDate, greeting, timeAgo } from "@/lib/format";
-import type { ActivityEvent, FunctionGroup, LicenseStatusResponse } from "@/lib/types";
+import { isSoundEnabled, playClick, setSoundEnabled } from "@/lib/sound";
+import type { ActivityEvent, FunctionKey, FunctionStates, LicenseStatusResponse } from "@/lib/types";
 import { FUNCTIONS } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
-const GROUPS: FunctionGroup[] = ["AIM ASSIST", "PERFORMANCE"];
-
 export function HomeTab({
-  status, loading, error, activity, onRetry, onLogout,
+  status, loading, error, activity, savingKey, onRetry, onLogout, onOpenControls, onToggle,
 }: {
   status: LicenseStatusResponse | null;
   loading: boolean;
   error: string | null;
   activity: ActivityEvent[];
+  savingKey: FunctionKey | null;
   onRetry: () => void;
   onLogout: () => void;
+  onOpenControls: () => void;
+  onToggle: (key: FunctionKey, next: boolean) => Promise<void>;
 }) {
   const [showLicense, setShowLicense] = useState(false);
+  const [sound, setSound] = useState(isSoundEnabled);
+  const [failed, setFailed] = useState<FunctionKey | null>(null);
 
   if (loading) {
     return (
       <div className="space-y-3">
-        <Skeleton className="h-44 w-full !rounded-[22px]" />
-        <Skeleton className="h-28 w-full" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-40 w-full !rounded-[22px]" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-44 w-full" />
       </div>
     );
   }
   if (error || !status) return <ErrorState message={error ?? "Couldn't load your dashboard."} onRetry={onRetry} />;
 
   const onCount = Object.values(status.functions).filter(Boolean).length;
-  const total = FUNCTIONS.length;
-  const health = onCount === total ? "OPTIMAL" : onCount === 0 ? "IDLE" : "ACTIVE";
+  const active = FUNCTIONS.filter((f) => status.functions[f.key]);
+  const standby = FUNCTIONS.filter((f) => !status.functions[f.key]);
+
+  function flipSound() {
+    const next = !sound;
+    setSound(next);
+    setSoundEnabled(next);
+    if (next) playClick();
+  }
+
+  async function flip(key: FunctionKey) {
+    if (savingKey || !status) return;
+    setFailed(null);
+    try {
+      await onToggle(key, !status.functions[key]);
+    } catch {
+      setFailed(key);
+    }
+  }
+
+  const actions = [
+    { id: "controls", label: "Controls", icon: SlidersHorizontal, fn: () => { playClick(); onOpenControls(); } },
+    { id: "license", label: "License", icon: KeyRound, fn: () => { playClick(); setShowLicense(true); } },
+    { id: "sound", label: sound ? "Sound on" : "Muted", icon: sound ? Volume2 : VolumeX, fn: flipSound },
+    { id: "sync", label: "Sync", icon: RefreshCw, fn: () => { playClick(); onRetry(); } },
+  ];
 
   return (
-    <div className="space-y-4">
-      {/* 1. Visual identity hero */}
-      <HeroArt>
-        <div className="flex items-center gap-3">
-          <Avatar size={44} />
-          <div className="min-w-0">
-            <h1 className="text-[22px] font-black leading-none tracking-[0.14em]">ZEV</h1>
-            <p className="mt-1 truncate text-[13px] text-slate-200">
-              {greeting()} · Your device is fully protected
-            </p>
+    <div className="space-y-5">
+      {/* Hero: artwork + identity + plan */}
+      <HeroArt className="min-h-[172px]">
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <Avatar size={46} />
+            <div className="min-w-0">
+              <h1 className="text-[20px] font-black leading-none tracking-[0.14em]">ZEV</h1>
+              <p className="mt-1 truncate text-[12.5px] text-slate-200">
+                {greeting()} · Fully protected
+              </p>
+            </div>
           </div>
+          <span className="zev-badge-premium shrink-0 !px-3 !py-1.5 !text-[11px]">♛ {status.license.plan}</span>
         </div>
       </HeroArt>
 
-      {/* 2. License card */}
-      <button onClick={() => setShowLicense(true)} className="zev-card block w-full p-4 text-left">
-        <Label>LICENSE</Label>
-        <div className="mt-1.5 flex items-center gap-2">
-          <span className="dot dot-on-green" />
-          <span className="text-lg font-extrabold tracking-wide">{status.license.status}</span>
-        </div>
-        <p className="mt-1 font-mono text-xs text-slate-400">{status.license.key}</p>
-        <span className="mt-2 flex items-center gap-1 text-[12px] font-bold text-purple-300">
-          View license <ChevronRight size={14} />
-        </span>
-      </button>
-
-      {/* 3. Premium badge + expiry */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="flex flex-col items-start justify-center">
-          <Label>PLAN</Label>
-          <span className="zev-badge-premium mt-2">♛ {status.license.plan}</span>
-        </Card>
-        <Card>
-          <Label>EXPIRES</Label>
-          <p className="mt-1.5 text-[15px] font-extrabold leading-tight">{fmtDate(status.license.expires_at)}</p>
-          <p className="mt-1 flex items-center gap-1.5 text-[12px] text-slate-400">
-            <Smartphone size={13} className="text-purple-300" />
-            {status.device.platform} · {status.device.status}
-          </p>
-        </Card>
+      {/* Focal: system health ring */}
+      <div aria-live="polite">
+        <HealthRing active={onCount} total={FUNCTIONS.length} />
       </div>
 
-      {/* 4. System health */}
-      <Card>
-        <div className="flex items-center justify-between">
-          <Label>SYSTEM STATUS</Label>
-          <span className={cn("text-[13px] font-black tracking-widest", health === "OPTIMAL" ? "text-emerald-300" : "text-purple-200")}>
-            {health}
+      {/* Compact status strip — no oversized cards */}
+      <div>
+        <button className="zev-strip w-full text-left" onClick={() => setShowLicense(true)} aria-label="View license details">
+          <span className="text-slate-400">License</span>
+          <span className="flex items-center gap-1.5 font-bold">
+            <span className="dot dot-on-green" />
+            <span className="text-emerald-300">{status.license.status}</span>
+            <span className="font-mono text-[11px] font-medium text-slate-500">{status.license.key.slice(-4)}</span>
           </span>
+        </button>
+        <div className="zev-strip">
+          <span className="text-slate-400">Device</span>
+          <span className="font-bold">{status.device.platform} · <span className="text-emerald-300">{status.device.status}</span></span>
         </div>
-        <p className="mt-1 text-[13px] text-slate-300">{onCount}/{total} systems active</p>
-        <div className="zev-progress mt-2.5">
-          <span style={{ width: `${Math.round((onCount / total) * 100)}%` }} />
+        <div className="zev-strip">
+          <span className="text-slate-400">Expires</span>
+          <span className="tnum font-bold">{fmtDate(status.license.expires_at)}</span>
         </div>
-      </Card>
+      </div>
 
-      {/* 5. Grouped quick status */}
-      <Card>
-        <Label>QUICK STATUS</Label>
-        {GROUPS.map((g) => (
-          <div key={g} className="mt-3 first:mt-2">
-            <p className="text-[10px] font-bold tracking-[0.2em] text-slate-500">{g}</p>
-            <div className="mt-1 space-y-1.5">
-              {FUNCTIONS.filter((f) => f.group === g).map((f) => {
-                const on = status.functions[f.key];
-                return (
-                  <div key={f.key} className="flex items-center justify-between text-[13px]">
-                    <span className={on ? "font-semibold text-slate-100" : "text-slate-400"}>{f.name}</span>
-                    <span className="flex items-center gap-1.5 font-bold">
-                      <StatusDot on={on} />
-                      <span className={on ? "text-emerald-300" : "text-slate-500"}>{on ? "ON" : "OFF"}</span>
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </Card>
+      {/* Quick actions */}
+      <div className="grid grid-cols-4 gap-2">
+        {actions.map((a) => {
+          const Icon = a.icon;
+          return (
+            <motion.button
+              key={a.id}
+              whileTap={{ scale: 0.93 }}
+              onClick={a.fn}
+              className="flex flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-slate-200"
+              aria-label={a.label}
+            >
+              <Icon size={19} className="text-purple-300" />
+              <span className="text-[10.5px] font-bold">{a.label}</span>
+            </motion.button>
+          );
+        })}
+      </div>
 
-      {/* 6. Recent activity (real events only) */}
-      <Card>
-        <Label>RECENT ACTIVITY</Label>
+      {/* Grouped systems: active first, dense tappable rows */}
+      <div className="space-y-4">
+        <SystemGroup
+          title={`ACTIVE · ${active.length}`}
+          keys={active.map((f) => f.key)}
+          functions={status.functions}
+          savingKey={savingKey}
+          failed={failed}
+          onFlip={(k) => void flip(k)}
+        />
+        {standby.length > 0 && (
+          <SystemGroup
+            title={`STANDBY · ${standby.length}`}
+            dim
+            keys={standby.map((f) => f.key)}
+            functions={status.functions}
+            savingKey={savingKey}
+            failed={failed}
+            onFlip={(k) => void flip(k)}
+          />
+        )}
+      </div>
+
+      {/* Recent activity — real events only */}
+      <div>
+        <SectionHeader kicker="RECENT ACTIVITY" />
         <div className="mt-2 space-y-2.5">
           {activity.slice(0, 5).map((a) => (
             <div key={a.id} className="flex items-center gap-2.5">
@@ -139,19 +172,19 @@ export function HomeTab({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-semibold text-slate-100">{a.label}</p>
                 <p className="text-[11px] text-slate-500">
-                  {a.action ?? (a.kind === "enabled" ? "Enabled" : a.kind === "disabled" ? "Disabled" : "Info")}
+                  {a.action ?? (a.kind === "enabled" ? "Enabled" : "Disabled")}
                   {a.iso ? ` · ${timeAgo(a.iso)}` : a.at ? ` · ${a.at}` : ""}
                 </p>
               </div>
             </div>
           ))}
           {activity.length === 0 && (
-            <p className="text-[13px] text-slate-500">No activity yet — toggle a function to begin.</p>
+            <p className="text-[13px] text-slate-500">No activity yet — toggle a system to begin.</p>
           )}
         </div>
-      </Card>
+      </div>
 
-      <button onClick={onLogout} className="zev-btn-ghost flex w-full items-center justify-center gap-2">
+      <button onClick={onLogout} className="zev-btn-ghost flex w-full items-center justify-center gap-2" aria-label="Sign out">
         <LogOut size={16} /> Sign out
       </button>
 
@@ -161,3 +194,58 @@ export function HomeTab({
     </div>
   );
 }
+
+function SystemGroup({
+  title, keys, functions, savingKey, failed, onFlip, dim,
+}: {
+  title: string;
+  keys: FunctionKey[];
+  functions: FunctionStates;
+  savingKey: FunctionKey | null;
+  failed: FunctionKey | null;
+  onFlip: (k: FunctionKey) => void;
+  dim?: boolean;
+}) {
+  if (keys.length === 0) return null;
+  return (
+    <div>
+      <SectionHeader kicker={title} />
+      <div className={cn("mt-1.5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]", dim && "opacity-75")}>
+        {keys.map((key, i) => {
+          const meta = FUNCTIONS.find((f) => f.key === key)!;
+          const on = functions[key];
+          const busy = savingKey === key;
+          return (
+            <motion.button
+              key={key}
+              role="switch"
+              aria-checked={on}
+              aria-label={`${meta.name}, ${on ? "on" : "off"}`}
+              whileTap={{ scale: 0.985 }}
+              onClick={() => onFlip(key)}
+              className={cn(
+                "flex w-full items-center gap-3 px-3.5 py-2.5 text-left",
+                i > 0 && "border-t border-white/5"
+              )}
+            >
+              <span className={cn("h-8 w-[3px] shrink-0 rounded-full", on ? "bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)]" : "bg-slate-700")} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13.5px] font-bold">{meta.name}</span>
+                <span className="block truncate text-[11.5px] text-slate-400">{meta.blurb}</span>
+                {failed === key && <span className="block text-[11px] text-red-400">Save failed — rolled back.</span>}
+              </span>
+              <span className={cn(
+                "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black tracking-wider",
+                on ? "bg-emerald-500/15 text-emerald-300" : "bg-white/5 text-slate-500"
+              )}>
+                {busy ? "…" : on ? "ON" : "OFF"}
+              </span>
+              <StatusDot on={on} />
+            </motion.button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+

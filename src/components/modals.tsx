@@ -1,11 +1,16 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { BadgeCheck, Copy, ShieldCheck, Smartphone, X } from "lucide-react";
 import { HeroArt } from "./HeroArt";
 import { fmtDate } from "@/lib/format";
+import { playClick } from "@/lib/sound";
 
-/** Welcome popup shown on every login (after activation / on session boot). */
+/**
+ * Cinematic welcome (~950ms staged reveal):
+ * logo fade → purple light sweep → status reveal → CTA reveal.
+ * Shown on every login (after activation / on session boot).
+ */
 export function WelcomeModal({
   plan, device, onEnter,
 }: {
@@ -13,38 +18,76 @@ export function WelcomeModal({
   device: string;
   onEnter: () => void;
 }) {
+  const reduce = useReducedMotion();
+  const ease = [0.22, 1, 0.36, 1] as const;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-5"
     >
       <motion.div
-        initial={{ scale: 0.94, y: 14 }}
-        animate={{ scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+        initial={{ scale: 0.94, y: 16, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.96, y: 8, opacity: 0 }}
+        transition={{ duration: 0.22, ease }}
         className="zev-card w-full max-w-[400px] overflow-hidden p-0"
       >
-        <HeroArt className="!rounded-none !border-0 min-h-[190px]">
-          <p className="text-[11px] font-bold tracking-[0.24em] text-purple-200">ZEV LOCK</p>
-          <h2 className="text-xl font-black">Welcome back</h2>
-        </HeroArt>
+        <div className="relative">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.25, ease }}
+          >
+            <HeroArt className="!rounded-none !border-0 min-h-[190px]">
+              <p className="text-[11px] font-bold tracking-[0.24em] text-purple-200">ZEV LOCK</p>
+              <h2 className="text-xl font-black">Welcome back</h2>
+            </HeroArt>
+          </motion.div>
+          {!reduce && (
+            <motion.span
+              aria-hidden="true"
+              className="zev-sweep"
+              initial={{ x: "-160%" }}
+              animate={{ x: "480%" }}
+              transition={{ delay: 0.25, duration: 0.32, ease: "easeInOut" }}
+            />
+          )}
+        </div>
         <div className="space-y-3 p-5">
-          <div className="flex justify-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: reduce ? 0 : 0.1, duration: 0.2 }}
+            className="flex justify-center"
+          >
             <span className="zev-badge-premium">♛ {plan}</span>
-          </div>
-          <div className="space-y-1.5 text-center text-[13px] text-slate-300">
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: reduce ? 0 : 0.55, duration: 0.25, ease }}
+            className="space-y-1.5 text-center text-[13px] text-slate-300"
+          >
             <p className="flex items-center justify-center gap-1.5">
               <Smartphone size={14} className="text-purple-300" /> {device} · Bound
             </p>
             <p className="flex items-center justify-center gap-1.5">
               <ShieldCheck size={14} className="text-emerald-300" /> Secure session created
             </p>
-          </div>
-          <button className="zev-btn-primary" onClick={onEnter}>
-            Enter dashboard
-          </button>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: reduce ? 0 : 0.8, duration: 0.25, ease }}
+          >
+            <button className="zev-btn-primary" onClick={() => { playClick(); onEnter(); }}>
+              Enter dashboard
+            </button>
+          </motion.div>
         </div>
       </motion.div>
     </motion.div>

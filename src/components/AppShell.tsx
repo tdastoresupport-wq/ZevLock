@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { BottomNav, type Tab } from "@/components/BottomNav";
 import { LicenseScreen } from "@/components/LicenseScreen";
 import { WelcomeModal } from "@/components/modals";
 import { HomeTab } from "@/components/HomeTab";
-import { FunctionTab, persistToggle } from "@/components/FunctionTab";
+import { FunctionTab, persistMany, persistToggle } from "@/components/FunctionTab";
 import { RealtimeTab } from "@/components/RealtimeTab";
 import { api } from "@/lib/api";
 import { getDeviceId } from "@/lib/device";
@@ -29,6 +29,7 @@ export default function AppShell() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("home");
   const [savingKey, setSavingKey] = useState<FunctionKey | null>(null);
+  const [savingAll, setSavingAll] = useState(false);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [welcome, setWelcome] = useState(false);
 
@@ -86,6 +87,21 @@ export default function AppShell() {
     }
   }
 
+  async function handleToggleAll(next: boolean) {
+    if (!status) return;
+    const full = Object.fromEntries(
+      (Object.keys(status.functions) as FunctionKey[]).map((k) => [k, next])
+    ) as FunctionStates;
+    setSavingAll(true);
+    try {
+      await persistMany(full, status.functions, (f: FunctionStates) => {
+        setStatus((s) => (s ? { ...s, functions: f } : s));
+      }, pushActivity);
+    } finally {
+      setSavingAll(false);
+    }
+  }
+
   async function handleLogout() {
     try { await api.logout(); } catch { /* ignore */ }
     api.clearToken();
@@ -112,41 +128,54 @@ export default function AppShell() {
   }
 
   return (
-    <div className="zev-top-pad min-h-dvh px-4 pb-28">
-      <AnimatePresence mode="wait">
-        <motion.main
-          key={tab}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.16 }}
-        >
-          {tab === "home" && (
-            <HomeTab status={status} loading={false} error={error} activity={activity} onRetry={() => void refresh()} onLogout={() => void handleLogout()} />
-          )}
-          {tab === "function" && (
-            <FunctionTab
-              functions={status.functions}
-              savingKey={savingKey}
-              pushActivity={pushActivity}
-              onToggle={async (k, n) => { await handleToggle(k, n); }}
+    <MotionConfig reducedMotion="user">
+      <div className="zev-top-pad min-h-dvh px-4 pb-28">
+        <AnimatePresence mode="wait">
+          <motion.main
+            key={tab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {tab === "home" && (
+              <HomeTab
+                status={status}
+                loading={false}
+                error={error}
+                activity={activity}
+                savingKey={savingKey}
+                onRetry={() => void refresh()}
+                onLogout={() => void handleLogout()}
+                onOpenControls={() => setTab("function")}
+                onToggle={async (k, n) => { await handleToggle(k, n); }}
+              />
+            )}
+            {tab === "function" && (
+              <FunctionTab
+                functions={status.functions}
+                savingKey={savingKey}
+                savingAll={savingAll}
+                onToggle={async (k, n) => { await handleToggle(k, n); }}
+                onToggleAll={async (n) => { await handleToggleAll(n); }}
+              />
+            )}
+            {tab === "realtime" && (
+              <RealtimeTab status={status} loading={false} error={error} activity={activity} onRetry={() => void refresh()} />
+            )}
+          </motion.main>
+        </AnimatePresence>
+        <BottomNav tab={tab} onChange={setTab} />
+        <AnimatePresence>
+          {welcome && (
+            <WelcomeModal
+              plan={status.license.plan}
+              device={`${status.device.platform} · ${status.device.status}`}
+              onEnter={() => setWelcome(false)}
             />
           )}
-          {tab === "realtime" && (
-            <RealtimeTab status={status} loading={false} error={error} onRetry={() => void refresh()} />
-          )}
-        </motion.main>
-      </AnimatePresence>
-      <BottomNav tab={tab} onChange={setTab} />
-      <AnimatePresence>
-        {welcome && (
-          <WelcomeModal
-            plan={status.license.plan}
-            device={`${status.device.platform} · ${status.device.status}`}
-            onEnter={() => setWelcome(false)}
-          />
-        )}
-      </AnimatePresence>
-    </div>
+        </AnimatePresence>
+      </div>
+    </MotionConfig>
   );
 }

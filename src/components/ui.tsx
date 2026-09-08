@@ -12,6 +12,16 @@ export function Label({ children }: { children: React.ReactNode }) {
   return <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-400">{children}</p>;
 }
 
+/** Compact section heading: kicker + optional right-side action. */
+export function SectionHeader({ kicker, action }: { kicker: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <p className="text-[11px] font-bold tracking-[0.22em] text-slate-400">{kicker}</p>
+      {action}
+    </div>
+  );
+}
+
 export function StatusDot({ on }: { on: boolean }) {
   return <span className={cn("dot", on ? "dot-on" : "dot-off")} />;
 }
@@ -33,29 +43,37 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   );
 }
 
-export function Toggle({ on, disabled, onChange }: { on: boolean; disabled?: boolean; onChange: () => void }) {
+/** Premium tactile switch: spring knob, press squash, glow when on. Hit area ≥ 44px. */
+export function Toggle({ on, disabled, label, onChange }: { on: boolean; disabled?: boolean; label: string; onChange: () => void }) {
   return (
-    <button
+    <motion.button
       role="switch"
       aria-checked={on}
+      aria-label={label}
       disabled={disabled}
       onClick={onChange}
-      className={cn(
-        "relative h-8 w-[52px] shrink-0 rounded-full border transition-colors duration-200",
-        on ? "border-purple-300/60 bg-gradient-to-r from-violet-600 to-purple-400" : "border-slate-600/60 bg-slate-800",
-        disabled && "opacity-50"
-      )}
-      style={{ minWidth: 52, minHeight: 32 }}
+      whileTap={{ scale: 0.9 }}
+      transition={{ type: "spring", stiffness: 700, damping: 28 }}
+      className={cn("relative flex h-11 w-[60px] shrink-0 items-center justify-center", disabled && "opacity-50")}
+      style={{ minWidth: 60, minHeight: 44 }}
     >
-      <motion.span
-        layout
-        transition={{ type: "spring", stiffness: 600, damping: 32 }}
+      <span
         className={cn(
-          "absolute top-[3px] h-[24px] w-[24px] rounded-full bg-white shadow",
-          on ? "right-[3px]" : "left-[3px]"
+          "h-8 w-[52px] rounded-full border transition-colors duration-200",
+          on
+            ? "border-purple-300/60 bg-gradient-to-r from-violet-600 to-purple-400 shadow-[0_0_14px_rgba(168,85,247,0.45)]"
+            : "border-slate-600/60 bg-slate-800"
         )}
       />
-    </button>
+      <motion.span
+        layout
+        transition={{ type: "spring", stiffness: 650, damping: 30 }}
+        className={cn(
+          "absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-white",
+          on ? "right-[7px] shadow-[0_0_10px_rgba(255,255,255,0.7)]" : "left-[7px] shadow"
+        )}
+      />
+    </motion.button>
   );
 }
 

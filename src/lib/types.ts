@@ -54,17 +54,18 @@ export interface FunctionMeta {
   name: string;
   tagline: string;
   group: FunctionGroup;
+  blurb: string;
 }
 
 export const FUNCTIONS: FunctionMeta[] = [
-  { key: "aimlock_head", name: "AimLock Head", tagline: "✓ Bám Đầu", group: "AIM ASSIST" },
-  { key: "stability_assist", name: "Stability Assist", tagline: "✓ Nhẹ Tâm", group: "AIM ASSIST" },
-  { key: "aim_hold", name: "Aim Hold", tagline: "✓ Ghim Tâm", group: "AIM ASSIST" },
-  { key: "aim_lockdown", name: "Aim LockDown", tagline: "✓ Đầm Tâm", group: "AIM ASSIST" },
-  { key: "sensitivity_boost", name: "Sensitivity Boost", tagline: "✓ Nhạy", group: "PERFORMANCE" },
-  { key: "screen_boost", name: "Screen Boost", tagline: "✓ Buff Màn", group: "PERFORMANCE" },
-  { key: "headshot_fix", name: "HeadShot Fix", tagline: "✓ Fix Lố Đầu", group: "PERFORMANCE" },
-  { key: "fix_recoil", name: "Fix Recoil", tagline: "✓ Đỡ Giật", group: "PERFORMANCE" },
+  { key: "aimlock_head", name: "AimLock Head", tagline: "✓ Bám Đầu", group: "AIM ASSIST", blurb: "Primary head-tracking profile" },
+  { key: "stability_assist", name: "Stability Assist", tagline: "✓ Nhẹ Tâm", group: "AIM ASSIST", blurb: "Softer, calmer aim feel" },
+  { key: "aim_hold", name: "Aim Hold", tagline: "✓ Ghim Tâm", group: "AIM ASSIST", blurb: "Steady-hold aim profile" },
+  { key: "aim_lockdown", name: "Aim LockDown", tagline: "✓ Đầm Tâm", group: "AIM ASSIST", blurb: "Maximum lockdown stability" },
+  { key: "sensitivity_boost", name: "Sensitivity Boost", tagline: "✓ Nhạy", group: "PERFORMANCE", blurb: "Faster touch response" },
+  { key: "screen_boost", name: "Screen Boost", tagline: "✓ Buff Màn", group: "PERFORMANCE", blurb: "Brighter, smoother display" },
+  { key: "headshot_fix", name: "HeadShot Fix", tagline: "✓ Fix Lố Đầu", group: "PERFORMANCE", blurb: "Head-level correction" },
+  { key: "fix_recoil", name: "Fix Recoil", tagline: "✓ Đỡ Giật", group: "PERFORMANCE", blurb: "Recoil calming profile" },
 ];
 
 export interface ActivityEvent {
