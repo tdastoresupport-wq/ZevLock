@@ -379,8 +379,42 @@ export async function updateAdminLogin(id: string): Promise<void> {
   await d1.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").bind(now(), id).run();
 }
 
-/* ---------------- stats ---------------- */
+/* ---------------- profile generation history ---------------- */
 
+export interface ProfileEvent {
+  preset: string;
+  identifier: string;
+  uuid: string;
+  created_at: string;
+}
+
+export async function listProfileEvents(licenseId: string, limit = 20): Promise<ProfileEvent[]> {
+  const d1 = getD1();
+  const rows = d1
+    ? (
+        await d1
+          .prepare("SELECT metadata, created_at FROM logs WHERE license_id = ? AND type = 'profile.created' ORDER BY id DESC LIMIT ?")
+          .bind(licenseId, Math.min(50, Math.max(1, limit)))
+          .all<{ metadata: string | null; created_at: string }>()
+      ).results
+    : [...mem().logs]
+        .reverse()
+        .filter((l) => l.license_id === licenseId && l.type === "profile.created")
+        .slice(0, limit)
+        .map((l) => ({ metadata: l.metadata, created_at: l.created_at }));
+  const out: ProfileEvent[] = [];
+  for (const r of rows) {
+    try {
+      const m = JSON.parse(r.metadata ?? "{}") as { preset?: string; identifier?: string; uuid?: string };
+      if (typeof m.preset === "string" && typeof m.identifier === "string" && typeof m.uuid === "string") {
+        out.push({ preset: m.preset, identifier: m.identifier, uuid: m.uuid, created_at: r.created_at });
+      }
+    } catch { /* skip corrupt rows */ }
+  }
+  return out;
+}
+
+/* ---------------- stats ---------------- */
 export async function adminStats(): Promise<{
   licenses_total: number; licenses_active: number; licenses_expired: number;
   licenses_revoked: number; devices_total: number; sessions_24h: number;

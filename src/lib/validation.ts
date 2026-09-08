@@ -58,6 +58,10 @@ export const adminLoginSchema = z.object({
   password: z.string().min(1).max(128),
 });
 
+export const profilePresetSchema = z.object({
+  preset: z.enum(["legacy", "standard", "high-hz"]),
+});
+
 export const extendLicenseSchema = z.object({
   extra_days: z.number().int().min(1).max(3650).default(30),
 });

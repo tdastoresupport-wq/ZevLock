@@ -78,3 +78,29 @@ export const adminAuth = {
   me: () => adminReq<{ admin: { id: string; email: string; name: string; role: string } }>(`/api/admin/me`),
   logout: () => adminReq<{ ok: true }>(`/api/admin/logout`, { method: "POST" }),
 };
+
+export interface ProfileHistoryItem {
+  preset: string;
+  identifier: string;
+  uuid: string;
+  created_at: string;
+}
+
+export interface GeneratedProfile {
+  preset: string;
+  filename: string;
+  contentType: string;
+  identifier: string;
+  uuid: string;
+  xml: string;
+  history: ProfileHistoryItem[];
+}
+
+export const profiles = {
+  generate: (preset: string) =>
+    req<GeneratedProfile>(`/api/profiles/generate`, {
+      method: "POST",
+      body: JSON.stringify({ preset }),
+    }),
+  history: () => req<{ items: ProfileHistoryItem[] }>(`/api/profiles/history`),
+};

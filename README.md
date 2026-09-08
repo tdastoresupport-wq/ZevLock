@@ -58,6 +58,21 @@ Local dev without a D1 binding uses an **in-memory demo store** seeded like
 - Avatar values: `zev` (official character) · initials (`JD`) · `https://…` URL · `data:image/png|jpeg|webp` upload (≤96 KB, magic-byte verified server-side; rendered only, never executed).
 - `last_used_at` is written on every activation/status read; the admin table shows bound-device counts.
 
+## iOS install profiles (MobileConfig)
+
+- Account → iOS install profile: pick Legacy / Standard / High-Hz → Generate →
+  client validates → Download → install in iPhone **Settings** (Profile Downloaded,
+  or General → VPN & Device Management). The PWA cannot install profiles silently.
+- Profiles contain only documented Apple keys: top-level `Configuration` payload
+  + one `com.apple.webClip.managed` shortcut. Presets differ in description,
+  auto-removal duration (30d / 1y / 7d), and clip label. No system-setting changes,
+  no gameplay effects — see `src/lib/mobileconfig.ts` for exact schema assumptions.
+- API: `POST /api/profiles/generate` (session + ACTIVE license, 10/hour/license,
+  audited as `profile.created`), `GET /api/profiles/history`.
+- Tests: `npm run test:mobileconfig` (needs the app running, `BASE_URL` env) —
+  plistlib parse, UUID, required keys, auth, invalid input. Unit checks for
+  escaping/determinism run against the real TS module.
+
 ## Device telemetry (honest layers)
 
 - Layer 1 (built in): browser facts only — CPU cores, memory estimate, screen, online/offline, connection, battery. Anything the browser hides renders as **Unavailable**, never fabricated.

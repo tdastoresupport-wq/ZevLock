@@ -5,6 +5,7 @@ import { Copy, LogOut, Smartphone, Volume2, VolumeX } from "lucide-react";
 import { ErrorState, SectionHeader, Skeleton } from "./ui";
 import { ConfirmDialog } from "./ui";
 import { KeyAvatar } from "./KeyAvatar";
+import { ProfilesSection } from "./ProfilesSection";
 import { fmtDate } from "@/lib/format";
 import { getBatteryInfo, getTelemetry, subscribeOnline, type BatteryInfo, type DeviceTelemetry } from "@/lib/telemetry";
 import { isSoundEnabled, playClick, setSoundEnabled } from "@/lib/sound";
@@ -123,10 +124,12 @@ export function AccountTab({
         </div>
       </div>
 
+      {/* iOS install profile */}
+      <ProfilesSection />
+
       {/* Preferences */}
       <div>
-        <SectionHeader kicker="PREFERENCES" />
-        <button
+        <SectionHeader kicker="PREFERENCES" />        <button
           role="switch"
           aria-checked={sound}
           aria-label="Sound effects"
