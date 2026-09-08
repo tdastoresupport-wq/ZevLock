@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addLog, findProfileByUuid } from "@/lib/db";
+import { addLog } from "@/lib/db";
+import { isPresetEnabled } from "@/lib/db";
 import { getSessionToken, rateLimit, tooMany, verifySession } from "@/lib/auth";
 import { effectiveLicenseById } from "@/lib/license";
-import { profileUuidSchema } from "@/lib/validation";
-import { PROFILE_CONTENT_TYPE, filenameFor } from "@/lib/mobileconfig";
+import { PROFILE_CONTENT_TYPE } from "@/lib/mobileconfig";
+import { CANONICAL_PROFILES } from "@/mobileconfig/profiles/bytes";
 
 /**
- * GET /api/mobileconfig/download?uuid=… — serve this license's own generated
- * profile bytes with download headers. The uuid must belong to the caller's
- * license (IDOR-safe); filename comes from the preset allowlist only.
+ * GET /api/mobileconfig/download?profile=<id> — serve the exact bytes of the
+ * corresponding canonical .mobileconfig file.
+ *
+ * Server-side allowlist only: legacy-60hz, standard-oled-60hz,
+ * promotion-high-hz. Unknown IDs → 404. The browser can never choose a
+ * filesystem path or filename. Requires a valid session + ACTIVE license,
+ * honors the admin preset flag, is rate-limited, and audited.
  */
 export async function GET(req: NextRequest) {
   const token = getSessionToken(req);
@@ -16,23 +21,25 @@ export async function GET(req: NextRequest) {
   if (!claims) return NextResponse.json({ error: "Invalid or expired session", code: "session_invalid" }, { status: 401 });
   if (!rateLimit(`profile-dl:${claims.licenseId}`, 30, 3_600_000)) return tooMany();
 
-  const parsed = profileUuidSchema.safeParse({ uuid: req.nextUrl.searchParams.get("uuid") });
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Unknown profile", code: "not_found" }, { status: 404 });
-  }
+  const id = req.nextUrl.searchParams.get("profile") ?? "";
+  const file = CANONICAL_PROFILES[id];
+  if (!file) return NextResponse.json({ error: "Unknown profile", code: "not_found" }, { status: 404 });
+
   const lic = await effectiveLicenseById(claims.licenseId);
-  if (!lic) return NextResponse.json({ error: "License not found", code: "not_found" }, { status: 404 });
+  if (!lic || lic.status !== "ACTIVE") {
+    return NextResponse.json({ error: "License is not active", code: "license_inactive" }, { status: 403 });
+  }
+  if (!(await isPresetEnabled(file.id))) {
+    return NextResponse.json({ error: "This preset is currently disabled", code: "preset_disabled" }, { status: 403 });
+  }
 
-  const found = await findProfileByUuid(lic.id, parsed.data.uuid);
-  if (!found) return NextResponse.json({ error: "Unknown profile", code: "not_found" }, { status: 404 });
-
-  await addLog("profile.downloaded", lic.id, null, { preset: found.preset, uuid: found.uuid });
-  return new NextResponse(found.xml, {
+  await addLog("profile.downloaded", lic.id, null, { preset: file.id, uuid: file.uuid });
+  return new NextResponse(file.xml, {
     status: 200,
     headers: {
       "Content-Type": PROFILE_CONTENT_TYPE,
-      "Content-Disposition": `attachment; filename="${filenameFor(found.preset as "legacy" | "standard" | "high-hz")}"`,
-      "Content-Length": String(new TextEncoder().encode(found.xml).length),
+      "Content-Disposition": `attachment; filename="${file.filename}"`,
+      "Content-Length": String(new TextEncoder().encode(file.xml).length),
       "Cache-Control": "no-store",
     },
   });

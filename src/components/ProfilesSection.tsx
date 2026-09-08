@@ -8,6 +8,7 @@ import {
   PRESET_MARKETING,
   UNSUPPORTED_TOUCH_SETTINGS,
   validateMobileconfig,
+  type ProfilePreset,
 } from "@/lib/mobileconfig";
 import { playClick, playError } from "@/lib/sound";
 import { BrandMark } from "./BrandMark";
@@ -42,7 +43,7 @@ const PHASE_LABEL: Record<Phase, string> = {
  * an iOS profile installation, and the PWA cannot install one silently.
  */
 export function ProfilesSection() {
-  const [preset, setPreset] = useState("standard");
+  const [preset, setPreset] = useState<ProfilePreset>("standard-oled-60hz");
   const [phase, setPhase] = useState<Phase>("READY");
   const [payload, setPayload] = useState<GeneratedProfile | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
@@ -50,7 +51,7 @@ export function ProfilesSection() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const marketing = PRESET_MARKETING[preset as keyof typeof PRESET_MARKETING] ?? PRESET_MARKETING.standard;
+  const marketing = PRESET_MARKETING[preset as keyof typeof PRESET_MARKETING] ?? PRESET_MARKETING["standard-oled-60hz"];
 
   async function loadHistory() {
     try {
@@ -82,7 +83,7 @@ export function ProfilesSection() {
       setPhase("VALIDATING");
       // Independent server-side validation round-trip + local structural check.
       const report = await profiles.validate(preset);
-      const local = validateMobileconfig(res.xml, preset as "legacy" | "standard" | "high-hz");
+      const local = validateMobileconfig(res.xml, preset);
       const errs = [...report.errors, ...local.errors];
       if (!report.ok || !local.ok) {
         fail("This profile did not pass validation and was not offered for download.", errs);
@@ -102,7 +103,7 @@ export function ProfilesSection() {
     setPhase("DOWNLOADING");
     try {
       const t = localStorage.getItem("zev_token");
-      const res = await fetch(profiles.downloadUrl(payload.uuid), {
+      const res = await fetch(profiles.downloadUrl(payload.preset), {
         headers: t ? { Authorization: `Bearer ${t}` } : {},
       });
       if (!res.ok) throw new Error("Download failed — try generating again.");
@@ -122,11 +123,11 @@ export function ProfilesSection() {
     }
   }
 
-  async function downloadRow(uuid: string, filename: string) {
+  async function downloadRow(presetId: string, filename: string) {
     playClick();
     try {
       const t = localStorage.getItem("zev_token");
-      const res = await fetch(profiles.downloadUrl(uuid), {
+      const res = await fetch(profiles.downloadUrl(presetId), {
         headers: t ? { Authorization: `Bearer ${t}` } : {},
       });
       if (!res.ok) throw new Error("Download failed");
@@ -318,7 +319,7 @@ export function ProfilesSection() {
                     <p className="tnum mt-0.5 font-mono text-[10.5px] text-slate-500">{fmtDate(h.created_at)}</p>
                   </div>
                   <button
-                    onClick={() => void downloadRow(h.uuid, `zev-lock-${h.preset}.mobileconfig`)}
+                    onClick={() => void downloadRow(h.preset, `zev-lock-${h.preset}.mobileconfig`)}
                     aria-label={`Download ${h.preset} profile`}
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-purple-200"
                   >

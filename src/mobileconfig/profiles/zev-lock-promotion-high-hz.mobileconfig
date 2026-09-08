@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>FullScreen</key>
+			<true/>
+			<key>IsRemovable</key>
+			<true/>
+			<key>Label</key>
+			<string>Zev Lock</string>
+			<key>PayloadDescription</key>
+			<string>App hỗ trợ cấu hình phản hồi cảm ứng của Zev.
+Device Support: ProMotion High-Hz (iPhone 13 Pro → 17 Pro / Pro Max)
+Price: 50 000 VNĐ → 500 000 VNĐ
+Tiktok: dvmxhontop
+Đức Anh Zev Trùm File</string>
+			<key>PayloadDisplayName</key>
+			<string>Zev Lock</string>
+			<key>PayloadIdentifier</key>
+			<string>com.zevlock.profile.promotion-high-hz.5cf9eac6-d598-4811-a840-1da55daa5d43.webclip</string>
+			<key>PayloadType</key>
+			<string>com.apple.webClip.managed</string>
+			<key>PayloadUUID</key>
+			<string>c50c8d2f-33dc-45a4-b146-efe2f4d03c85</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>URL</key>
+			<string>https://zevlock.app/?utm_source=ios-profile&amp;utm_preset=promotion-high-hz</string>
+		</dict>
+	</array>
+	<key>PayloadDescription</key>
+	<string>App hỗ trợ cấu hình phản hồi cảm ứng của Zev.
+Device Support: ProMotion High-Hz (iPhone 13 Pro → 17 Pro / Pro Max)
+Price: 50 000 VNĐ → 500 000 VNĐ
+Tiktok: dvmxhontop
+Đức Anh Zev Trùm File</string>
+	<key>PayloadDisplayName</key>
+	<string>Zev Lock — Promotion High-Hz</string>
+	<key>PayloadIdentifier</key>
+	<string>com.zevlock.profile.promotion-high-hz.5cf9eac6-d598-4811-a840-1da55daa5d43</string>
+	<key>PayloadOrganization</key>
+	<string>Duc Anh Zev - Đức Anh Zev Trùm File</string>
+	<key>PayloadRemovalDisallowed</key>
+	<false/>
+	<key>DurationUntilRemoval</key>
+	<integer>604800</integer>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>5cf9eac6-d598-4811-a840-1da55daa5d43</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>

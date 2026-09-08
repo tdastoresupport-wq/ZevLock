@@ -3,19 +3,13 @@ import { addLog, isPresetEnabled, listProfileEvents } from "@/lib/db";
 import { getSessionToken, rateLimit, tooMany, verifySession } from "@/lib/auth";
 import { effectiveLicenseById } from "@/lib/license";
 import { profilePresetSchema } from "@/lib/validation";
-import {
-  PROFILE_CONTENT_TYPE,
-  buildMobileconfig,
-  filenameFor,
-  validateMobileconfig,
-  type ProfilePreset,
-} from "@/lib/mobileconfig";
+import { PROFILE_CONTENT_TYPE, validateMobileconfig } from "@/lib/mobileconfig";
+import { CANONICAL_PROFILES } from "@/mobileconfig/profiles/bytes";
 
 /**
- * POST /api/profiles/generate — build a signed install profile for this license.
- * Requires a valid session + ACTIVE license (verified server-side, never trusted
- * from the browser). Rate-limited, audited. Returns the XML for client-side
- * validation + download (iOS installs it via Settings — never silently).
+ * POST /api/profiles/generate — legacy alias of /api/mobileconfig/generate.
+ * Issues the canonical profile file bytes to this license (same audit,
+ * same rate limits). Kept for backward compatibility.
  */
 export async function POST(req: NextRequest) {
   const token = getSessionToken(req);
@@ -28,7 +22,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Unknown profile preset", code: "invalid_preset" }, { status: 400 });
   }
-  const preset = parsed.data.preset as ProfilePreset;
+  const preset = parsed.data.preset;
 
   const lic = await effectiveLicenseById(claims.licenseId);
   if (!lic || lic.status !== "ACTIVE") {
@@ -38,32 +32,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "This preset is currently disabled", code: "preset_disabled" }, { status: 403 });
   }
 
-  const origin = req.nextUrl.origin;
-  let profile;
-  try {
-    profile = buildMobileconfig({ preset, origin });
-  } catch {
+  const file = CANONICAL_PROFILES[preset];
+  if (!file) {
     return NextResponse.json({ error: "Could not build profile", code: "build_failed" }, { status: 500 });
   }
-  const check = validateMobileconfig(profile.xml, preset);
+  const check = validateMobileconfig(file.xml, preset);
   if (!check.ok) {
     return NextResponse.json({ error: "Generated profile failed validation", code: "invalid_profile" }, { status: 500 });
   }
 
   await addLog("profile.created", lic.id, null, {
     preset,
-    identifier: profile.payloadIdentifier,
-    uuid: profile.payloadUUID,
-    xml: profile.xml,
+    identifier: file.identifier,
+    uuid: file.uuid,
   });
 
   return NextResponse.json({
     preset,
-    filename: filenameFor(preset),
+    filename: file.filename,
     contentType: PROFILE_CONTENT_TYPE,
-    identifier: profile.payloadIdentifier,
-    uuid: profile.payloadUUID,
-    xml: profile.xml,
+    identifier: file.identifier,
+    uuid: file.uuid,
+    xml: file.xml,
     history: await listProfileEvents(lic.id, 20),
   });
 }

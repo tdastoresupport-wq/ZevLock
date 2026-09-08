@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>FullScreen</key>
+			<true/>
+			<key>IsRemovable</key>
+			<true/>
+			<key>Label</key>
+			<string>Zev Lock</string>
+			<key>PayloadDescription</key>
+			<string>App hỗ trợ cấu hình phản hồi cảm ứng của Zev.
+Device Support: Legacy 60Hz (iPhone 7 / 8 / SE / X / XR / 11)
+Price: 50 000 VNĐ → 500 000 VNĐ
+Tiktok: dvmxhontop
+Đức Anh Zev Trùm File</string>
+			<key>PayloadDisplayName</key>
+			<string>Zev Lock</string>
+			<key>PayloadIdentifier</key>
+			<string>com.zevlock.profile.legacy-60hz.adffb62d-a06f-4dc0-93e9-ec32a75462da.webclip</string>
+			<key>PayloadType</key>
+			<string>com.apple.webClip.managed</string>
+			<key>PayloadUUID</key>
+			<string>39d382ef-9001-442a-bf1d-3c06af020fbe</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>URL</key>
+			<string>https://zevlock.app/?utm_source=ios-profile&amp;utm_preset=legacy-60hz</string>
+		</dict>
+	</array>
+	<key>PayloadDescription</key>
+	<string>App hỗ trợ cấu hình phản hồi cảm ứng của Zev.
+Device Support: Legacy 60Hz (iPhone 7 / 8 / SE / X / XR / 11)
+Price: 50 000 VNĐ → 500 000 VNĐ
+Tiktok: dvmxhontop
+Đức Anh Zev Trùm File</string>
+	<key>PayloadDisplayName</key>
+	<string>Zev Lock — Legacy 60Hz</string>
+	<key>PayloadIdentifier</key>
+	<string>com.zevlock.profile.legacy-60hz.adffb62d-a06f-4dc0-93e9-ec32a75462da</string>
+	<key>PayloadOrganization</key>
+	<string>Duc Anh Zev - Đức Anh Zev Trùm File</string>
+	<key>PayloadRemovalDisallowed</key>
+	<false/>
+	<key>DurationUntilRemoval</key>
+	<integer>2592000</integer>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>adffb62d-a06f-4dc0-93e9-ec32a75462da</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>

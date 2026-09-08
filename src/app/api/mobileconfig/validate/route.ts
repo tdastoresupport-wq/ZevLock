@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionToken, rateLimit, tooMany, verifySession } from "@/lib/auth";
 import { effectiveLicenseById } from "@/lib/license";
 import { profilePresetSchema } from "@/lib/validation";
-import {
-  MOBILECONFIG_SCHEMA_VERSION,
-  buildMobileconfig,
-  validateMobileconfig,
-  type ProfilePreset,
-} from "@/lib/mobileconfig";
+import { MOBILECONFIG_SCHEMA_VERSION, validateMobileconfig } from "@/lib/mobileconfig";
+import { CANONICAL_PROFILES } from "@/mobileconfig/profiles/bytes";
 
 /**
  * POST /api/mobileconfig/validate — server-side validation report for a preset.
- * Only the preset ID is accepted (strict allowlist); the server rebuilds the
- * profile itself, so no arbitrary XML or plist keys can be injected.
+ * Only the preset ID is accepted (strict allowlist); the canonical file bytes
+ * are validated, so no arbitrary XML or plist keys can be injected.
  * Successful validations are NOT persisted (no history spam); failures are audited.
  */
 export async function POST(req: NextRequest) {
@@ -31,19 +27,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "License is not active", code: "license_inactive" }, { status: 403 });
   }
 
-  const preset = parsed.data.preset as ProfilePreset;
-  let profile;
-  try {
-    profile = buildMobileconfig({ preset, origin: req.nextUrl.origin });
-  } catch {
+  const preset = parsed.data.preset;
+  const file = CANONICAL_PROFILES[preset];
+  if (!file) {
     return NextResponse.json({ error: "Could not build profile", code: "build_failed" }, { status: 500 });
   }
-  const check = validateMobileconfig(profile.xml, preset);
+  const check = validateMobileconfig(file.xml, preset);
   return NextResponse.json({
     ok: check.ok,
     errors: check.errors,
     schemaVersion: MOBILECONFIG_SCHEMA_VERSION,
-    identifier: profile.payloadIdentifier,
-    uuid: profile.payloadUUID,
+    identifier: file.identifier,
+    uuid: file.uuid,
   });
 }

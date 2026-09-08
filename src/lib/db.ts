@@ -71,9 +71,9 @@ function mem(): MemDb {
       ],
       users: new Map(),
       presets: new Map([
-        ["legacy", true],
-        ["standard", true],
-        ["high-hz", true],
+        ["legacy-60hz", true],
+        ["standard-oled-60hz", true],
+        ["promotion-high-hz", true],
       ]),
     };
   }
@@ -455,40 +455,13 @@ export async function listProfileEvents(licenseId: string, limit = 20): Promise<
   return out;
 }
 
-/** Fetch one generated profile owned by this license (for file download). */
-export async function findProfileByUuid(
-  licenseId: string,
-  uuid: string
-): Promise<{ preset: string; identifier: string; uuid: string; xml: string } | null> {
-  const d1 = getD1();
-  const rows = d1
-    ? (
-        await d1
-          .prepare("SELECT metadata FROM logs WHERE license_id = ? AND type = 'profile.created' ORDER BY id DESC LIMIT 50")
-          .bind(licenseId)
-          .all<{ metadata: string | null }>()
-      ).results.map((r) => r.metadata)
-    : [...mem().logs]
-        .filter((l) => l.license_id === licenseId && l.type === "profile.created")
-        .map((l) => l.metadata);
-  for (const raw of rows) {
-    try {
-      const m = JSON.parse(raw ?? "{}") as { preset?: string; identifier?: string; uuid?: string; xml?: string };
-      if (m.uuid === uuid && typeof m.preset === "string" && typeof m.identifier === "string" && typeof m.xml === "string") {
-        return { preset: m.preset, identifier: m.identifier, uuid: m.uuid, xml: m.xml };
-      }
-    } catch { /* skip corrupt rows */ }
-  }
-  return null;
-}
-
 /* ---------------- admin-controlled preset availability ---------------- */
 
 export async function listPresetStates(): Promise<{ preset: string; enabled: boolean }[]> {
   const d1 = getD1();
   if (!d1) {
     const m = mem().presets;
-    return ["legacy", "standard", "high-hz"].map((p) => ({ preset: p, enabled: m.get(p) ?? true }));
+    return ["legacy-60hz", "standard-oled-60hz", "promotion-high-hz"].map((p) => ({ preset: p, enabled: m.get(p) ?? true }));
   }
   try {
     const { results } = await d1
@@ -496,9 +469,9 @@ export async function listPresetStates(): Promise<{ preset: string; enabled: boo
       .bind()
       .all<{ preset: string; enabled: number }>();
     const map = new Map(results.map((r) => [r.preset, r.enabled === 1]));
-    return ["legacy", "standard", "high-hz"].map((p) => ({ preset: p, enabled: map.get(p) ?? true }));
+    return ["legacy-60hz", "standard-oled-60hz", "promotion-high-hz"].map((p) => ({ preset: p, enabled: map.get(p) ?? true }));
   } catch {
-    return ["legacy", "standard", "high-hz"].map((p) => ({ preset: p, enabled: true }));
+    return ["legacy-60hz", "standard-oled-60hz", "promotion-high-hz"].map((p) => ({ preset: p, enabled: true }));
   }
 }
 
@@ -525,7 +498,7 @@ export async function setPresetEnabled(preset: string, enabled: boolean): Promis
 /** Generation stats per preset (from audit logs — real counts only). */
 export async function profileStats(): Promise<{ preset: string; created: number; downloaded: number }[]> {
   const d1 = getD1();
-  const presets = ["legacy", "standard", "high-hz"];
+  const presets = ["legacy-60hz", "standard-oled-60hz", "promotion-high-hz"];
   if (!d1) {
     const logs = mem().logs;
     return presets.map((p) => ({

@@ -107,6 +107,6 @@ export const profiles = {
     req<{ ok: boolean; errors: string[]; schemaVersion: string; identifier: string; uuid: string }>(
       `/api/mobileconfig/validate`, { method: "POST", body: JSON.stringify({ preset }) }
     ),
-  downloadUrl: (uuid: string) => `/api/mobileconfig/download?uuid=${encodeURIComponent(uuid)}`,
-  history: () => req<{ items: ProfileHistoryItem[] }>(`/api/profiles/history`),
+  downloadUrl: (preset: string) => `/api/mobileconfig/download?profile=${encodeURIComponent(preset)}`,
+  history: () => req<{ items: ProfileHistoryItem[] }>(`/api/mobileconfig/history`),
 };

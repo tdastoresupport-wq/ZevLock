@@ -5,6 +5,7 @@ import {
   Ban, Copy, Eye, KeyRound, Pencil, Plus, RefreshCcw, Search, ShieldCheck, Smartphone, Trash2,
 } from "lucide-react";
 import { adminAuth, adminReq } from "@/lib/api";
+import { validateMobileconfig } from "@/lib/mobileconfig";
 import { Card, ConfirmDialog, ErrorState, Label, Skeleton } from "@/components/ui";
 import { BrandMark } from "@/components/BrandMark";
 import { KeyAvatar } from "@/components/KeyAvatar";
@@ -697,26 +698,41 @@ interface TemplateRow {
   preset: string;
   label: string;
   enabled: boolean;
+  filename: string | null;
+  identifier: string | null;
+  uuid: string | null;
+  sizeBytes: number;
+  xml: string | null;
   stats: { created: number; downloaded: number };
+}
+
+interface TemplateError {
+  license_id: string | null;
+  metadata: string | null;
+  created_at: string;
 }
 
 function Templates({ role }: { role: string }) {
   const [schema, setSchema] = useState("…");
   const [rows, setRows] = useState<TemplateRow[]>([]);
   const [activity, setActivity] = useState<LogRow[]>([]);
+  const [errors, setErrors] = useState<TemplateError[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [validated, setValidated] = useState<Record<string, string>>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
       const [t, l] = await Promise.all([
-        adminReq<{ schemaVersion: string; presets: TemplateRow[] }>("/api/admin/mobileconfig/templates"),
+        adminReq<{ schemaVersion: string; presets: TemplateRow[]; recentErrors: TemplateError[] }>("/api/admin/mobileconfig/templates"),
         adminReq<{ items: LogRow[] }>("/api/admin/logs?limit=50"),
       ]);
       setSchema(t.schemaVersion);
       setRows(t.presets);
+      setErrors(t.recentErrors);
       setActivity(l.items.filter((x) => x.type.startsWith("profile.") || x.type.startsWith("admin.preset")));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load templates");
@@ -754,33 +770,63 @@ function Templates({ role }: { role: string }) {
         </div>
         <div className="mt-2 space-y-2">
           {rows.map((r) => (
-            <div key={r.preset} className="flex items-center gap-3 rounded-xl border border-white/[0.07] bg-black/20 p-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-[13.5px] font-black">{r.label}</p>
-                <p className="tnum mt-0.5 font-mono text-[11px] text-slate-500">
-                  {r.stats.created} generated · {r.stats.downloaded} downloaded
-                </p>
+            <div key={r.preset} className="rounded-xl border border-white/[0.07] bg-black/20 p-3">
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13.5px] font-black">{r.label}</p>
+                  <p className="tnum mt-0.5 font-mono text-[11px] text-slate-500">
+                    {r.filename ?? "—"} · {r.sizeBytes} bytes · {r.stats.created} generated · {r.stats.downloaded} downloaded
+                  </p>
+                </div>
+                {canDestroy(role) ? (
+                  <button
+                    role="switch"
+                    aria-checked={r.enabled}
+                    aria-label={`${r.label} preset ${r.enabled ? "enabled" : "disabled"}`}
+                    onClick={() => void toggle(r.preset, !r.enabled)}
+                    className={cn(
+                      "relative h-8 w-[52px] shrink-0 rounded-full border transition-colors",
+                      r.enabled ? "border-purple-300/60 bg-gradient-to-r from-violet-600 to-purple-400" : "border-slate-600/60 bg-slate-800"
+                    )}
+                  >
+                    <span className={cn(
+                      "absolute top-[3px] h-[24px] w-[24px] rounded-full bg-white shadow",
+                      r.enabled ? "right-[3px]" : "left-[3px]"
+                    )} />
+                  </button>
+                ) : (
+                  <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-black", r.enabled ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 text-slate-500")}>
+                    {r.enabled ? "ON" : "OFF"}
+                  </span>
+                )}
               </div>
-              {canDestroy(role) ? (
+              <div className="mt-2 flex gap-1.5">
                 <button
-                  role="switch"
-                  aria-checked={r.enabled}
-                  aria-label={`${r.label} preset ${r.enabled ? "enabled" : "disabled"}`}
-                  onClick={() => void toggle(r.preset, !r.enabled)}
-                  className={cn(
-                    "relative h-8 w-[52px] shrink-0 rounded-full border transition-colors",
-                    r.enabled ? "border-purple-300/60 bg-gradient-to-r from-violet-600 to-purple-400" : "border-slate-600/60 bg-slate-800"
-                  )}
+                  className="zev-btn-ghost !px-2.5 !py-1 text-[11px]"
+                  onClick={() => {
+                    if (!r.xml) return;
+                    const check = validateMobileconfig(r.xml, r.preset as "legacy-60hz" | "standard-oled-60hz" | "promotion-high-hz");
+                    setValidated((v) => ({ ...v, [r.preset]: check.ok ? "Valid ✓" : `Invalid: ${check.errors.join("; ")}` }));
+                  }}
                 >
-                  <span className={cn(
-                    "absolute top-[3px] h-[24px] w-[24px] rounded-full bg-white shadow",
-                    r.enabled ? "right-[3px]" : "left-[3px]"
-                  )} />
+                  Validate
                 </button>
-              ) : (
-                <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-black", r.enabled ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 text-slate-500")}>
-                  {r.enabled ? "ON" : "OFF"}
-                </span>
+                <button
+                  className="zev-btn-ghost !px-2.5 !py-1 text-[11px]"
+                  onClick={() => setExpanded((e) => (e === r.preset ? null : r.preset))}
+                >
+                  {expanded === r.preset ? "Hide metadata" : "Metadata"}
+                </button>
+                {validated[r.preset] && (
+                  <span className="self-center font-mono text-[11px] text-emerald-300">{validated[r.preset]}</span>
+                )}
+              </div>
+              {expanded === r.preset && (
+                <div className="mt-2 space-y-1 break-all font-mono text-[11px] text-slate-400">
+                  <p>id: {r.preset}</p>
+                  <p>identifier: {r.identifier ?? "—"}</p>
+                  <p>uuid: {r.uuid ?? "—"}</p>
+                </div>
               )}
             </div>
           ))}
@@ -788,6 +834,18 @@ function Templates({ role }: { role: string }) {
         {!canDestroy(role) && (
           <p className="mt-2 text-[11px] text-slate-500">Your role can inspect templates but cannot modify them.</p>
         )}
+      </Card>
+      <Card>
+        <Label>GENERATION ERRORS</Label>
+        <div className="mt-2 space-y-2">
+          {errors.slice(0, 10).map((l, i) => (
+            <div key={`${l.created_at}-${i}`} className="flex items-center justify-between gap-2 text-[12px]">
+              <span className="truncate font-mono text-red-300">{l.metadata ?? "profile.failed"}</span>
+              <span className="shrink-0 font-mono text-[10px] text-slate-500">{new Date(l.created_at).toLocaleString("en-GB", { hour12: false })}</span>
+            </div>
+          ))}
+          {errors.length === 0 && <p className="text-[13px] text-slate-500">No generation errors.</p>}
+        </div>
       </Card>
       <Card>
         <Label>GENERATION ACTIVITY</Label>

@@ -19,7 +19,7 @@
  *   and provide no aim, recoil, targeting, or gameplay effects of any kind.
  */
 
-export const PROFILE_PRESETS = ["legacy", "standard", "high-hz"] as const;
+export const PROFILE_PRESETS = ["legacy-60hz", "standard-oled-60hz", "promotion-high-hz"] as const;
 export type ProfilePreset = (typeof PROFILE_PRESETS)[number];
 
 export const PROFILE_APP_NAME = "Zev Lock";
@@ -27,38 +27,53 @@ export const PROFILE_ORG = "Duc Anh Zev - Đức Anh Zev Trùm File";
 export const PROFILE_CONTENT_TYPE = "application/x-apple-aspen-config";
 
 /** Version of the Zev profile schema (preset definitions + builder output). */
-export const MOBILECONFIG_SCHEMA_VERSION = "1.0.0";
+export const MOBILECONFIG_SCHEMA_VERSION = "2.0.0";
 
 interface PresetDef {
   preset: ProfilePreset;
+  /** Full display name written into the plist (plain text, no markup). */
+  displayName: string;
   clipLabel: string;
+  /** Plain-text plist description (exact marketing copy, no HTML). */
   description: string;
   durationSeconds: number;
 }
 
 const PRESETS: Record<ProfilePreset, PresetDef> = {
-  legacy: {
-    preset: "legacy",
+  "legacy-60hz": {
+    preset: "legacy-60hz",
+    displayName: "Zev Lock — Legacy 60Hz",
     clipLabel: "Zev Lock",
     description:
-      "Zev Lock install profile (Legacy, 30 days). Adds the Zev Lock shortcut to your Home Screen. " +
-      "Does not change system settings and has no gameplay effects. After downloading, install it in Settings.",
+      "App hỗ trợ cấu hình phản hồi cảm ứng của Zev.\n" +
+      "Device Support: Legacy 60Hz (iPhone 7 / 8 / SE / X / XR / 11)\n" +
+      "Price: 50 000 VNĐ → 500 000 VNĐ\n" +
+      "Tiktok: dvmxhontop\n" +
+      "Đức Anh Zev Trùm File",
     durationSeconds: 30 * 86_400,
   },
-  standard: {
-    preset: "standard",
+  "standard-oled-60hz": {
+    preset: "standard-oled-60hz",
+    displayName: "Zev Lock — Standard OLED 60Hz",
     clipLabel: "Zev Lock",
     description:
-      "Zev Lock install profile (Standard, 1 year). Adds the Zev Lock shortcut to your Home Screen. " +
-      "Does not change system settings and has no gameplay effects. After downloading, install it in Settings.",
+      "App hỗ trợ cấu hình phản hồi cảm ứng của Zev.\n" +
+      "Device Support: Standard OLED 60Hz (iPhone 12 / 13 / 14 / 15 / 16 / 17 bản thường)\n" +
+      "Price: 50 000 VNĐ → 500 000 VNĐ\n" +
+      "Tiktok: dvmxhontop\n" +
+      "Đức Anh Zev Trùm File",
     durationSeconds: 365 * 86_400,
   },
-  "high-hz": {
-    preset: "high-hz",
+  "promotion-high-hz": {
+    preset: "promotion-high-hz",
+    displayName: "Zev Lock — Promotion High-Hz",
     clipLabel: "Zev Lock",
     description:
-      "Zev Lock install profile (Promotion High-Hz, 7 days). Adds the Zev Lock shortcut to your Home Screen. " +
-      "Does not change system settings and has no gameplay effects. After downloading, install it in Settings.",
+      "App hỗ trợ cấu hình phản hồi cảm ứng của Zev.\n" +
+      "Device Support: ProMotion High-Hz (iPhone 13 Pro → 17 Pro / Pro Max)\n" +
+      "Price: 50 000 VNĐ → 500 000 VNĐ\n" +
+      "Tiktok: dvmxhontop\n" +
+      "Đức Anh Zev Trùm File",
     durationSeconds: 7 * 86_400,
   },
 };
@@ -107,29 +122,29 @@ export interface PresetMarketing {
 }
 
 export const PRESET_MARKETING: Record<ProfilePreset, PresetMarketing> = {
-  legacy: {
-    preset: "legacy",
+  "legacy-60hz": {
+    preset: "legacy-60hz",
     title: "Legacy 60Hz",
     tagline: "App hỗ trợ cấu hình phản hồi cảm ứng của iPhone.",
-    deviceSupport: "Legacy 60Hz",
+    deviceSupport: "Legacy 60Hz (iPhone 7 / 8 / SE / X / XR / 11)",
     price: "50 000 VNĐ → 500 000 VNĐ",
     tiktok: "dvmxhontop",
     manualNote: "Some touch settings must be configured manually in iOS Accessibility.",
   },
-  standard: {
-    preset: "standard",
+  "standard-oled-60hz": {
+    preset: "standard-oled-60hz",
     title: "Standard OLED 60Hz",
     tagline: "App hỗ trợ cấu hình phản hồi cảm ứng của iPhone.",
-    deviceSupport: "Standard OLED 60Hz",
+    deviceSupport: "Standard OLED 60Hz (iPhone 12 / 13 / 14 / 15 / 16 / 17 bản thường)",
     price: "50 000 VNĐ → 500 000 VNĐ",
     tiktok: "dvmxhontop",
     manualNote: "Some touch settings must be configured manually in iOS Accessibility.",
   },
-  "high-hz": {
-    preset: "high-hz",
+  "promotion-high-hz": {
+    preset: "promotion-high-hz",
     title: "Promotion High-Hz",
     tagline: "App hỗ trợ cấu hình phản hồi cảm ứng của iPhone.",
-    deviceSupport: "Promotion High-Hz",
+    deviceSupport: "ProMotion High-Hz (iPhone 13 Pro → 17 Pro / Pro Max)",
     price: "50 000 VNĐ → 500 000 VNĐ",
     tiktok: "dvmxhontop",
     manualNote: "Some touch settings must be configured manually in iOS Accessibility.",
@@ -245,7 +260,7 @@ export function buildMobileconfig(opts: {
   const top: [string, PlistValue][] = [
     ["PayloadContent", { t: "arr", v: [{ t: "dict", v: webclip }] }],
     ["PayloadDescription", { t: "s", v: def.description }],
-    ["PayloadDisplayName", { t: "s", v: PROFILE_APP_NAME }],
+    ["PayloadDisplayName", { t: "s", v: def.displayName }],
     ["PayloadIdentifier", { t: "s", v: identifier }],
     ["PayloadOrganization", { t: "s", v: PROFILE_ORG }],
     ["PayloadRemovalDisallowed", { t: "b", v: false }],
@@ -315,6 +330,8 @@ const REQUIRED_TOP_KEYS = [
 /** Pre-download validation: structure, required keys, UUIDs, honesty markers. */
 export function validateMobileconfig(xml: string, preset: ProfilePreset): { ok: boolean; errors: string[] } {
   const errors: string[] = [];
+  const def = PRESETS[preset];
+  if (!def) errors.push("unknown profile preset");
   if (!xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')) {
     errors.push("missing XML declaration");
   }
@@ -333,7 +350,9 @@ export function validateMobileconfig(xml: string, preset: ProfilePreset): { ok: 
   for (const u of uuids) {
     if (!isUuidV4(u)) errors.push(`malformed UUID: ${u}`);
   }
-  if (!xml.includes(`<string>${PROFILE_APP_NAME}</string>`)) errors.push("missing PayloadDisplayName value");
+  if (def && !xml.includes(`<string>${escXml(def.displayName)}</string>`)) {
+    errors.push("missing PayloadDisplayName value");
+  }
   if (!xml.includes(`<string>${escXml(PROFILE_ORG)}</string>`)) errors.push("missing PayloadOrganization value");
   if (!xml.includes(`utm_preset=${preset}`)) errors.push("webclip URL does not match preset");
   return { ok: errors.length === 0, errors };

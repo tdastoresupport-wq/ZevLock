@@ -60,7 +60,7 @@ export const adminLoginSchema = z.object({
 
 export const profilePresetSchema = z
   .object({
-    preset: z.enum(["legacy", "standard", "high-hz"]),
+    preset: z.enum(["legacy-60hz", "standard-oled-60hz", "promotion-high-hz"]),
   })
   .strict();
 

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>FullScreen</key>
+			<true/>
+			<key>IsRemovable</key>
+			<true/>
+			<key>Label</key>
+			<string>Zev Lock</string>
+			<key>PayloadDescription</key>
+			<string>App hỗ trợ cấu hình phản hồi cảm ứng của Zev.
+Device Support: Standard OLED 60Hz (iPhone 12 / 13 / 14 / 15 / 16 / 17 bản thường)
+Price: 50 000 VNĐ → 500 000 VNĐ
+Tiktok: dvmxhontop
+Đức Anh Zev Trùm File</string>
+			<key>PayloadDisplayName</key>
+			<string>Zev Lock</string>
+			<key>PayloadIdentifier</key>
+			<string>com.zevlock.profile.standard-oled-60hz.a2d2e25c-7361-4d31-b66e-c7b435ef4027.webclip</string>
+			<key>PayloadType</key>
+			<string>com.apple.webClip.managed</string>
+			<key>PayloadUUID</key>
+			<string>e43fb7e9-3cc1-49b6-b816-47a2852fffff</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>URL</key>
+			<string>https://zevlock.app/?utm_source=ios-profile&amp;utm_preset=standard-oled-60hz</string>
+		</dict>
+	</array>
+	<key>PayloadDescription</key>
+	<string>App hỗ trợ cấu hình phản hồi cảm ứng của Zev.
+Device Support: Standard OLED 60Hz (iPhone 12 / 13 / 14 / 15 / 16 / 17 bản thường)
+Price: 50 000 VNĐ → 500 000 VNĐ
+Tiktok: dvmxhontop
+Đức Anh Zev Trùm File</string>
+	<key>PayloadDisplayName</key>
+	<string>Zev Lock — Standard OLED 60Hz</string>
+	<key>PayloadIdentifier</key>
+	<string>com.zevlock.profile.standard-oled-60hz.a2d2e25c-7361-4d31-b66e-c7b435ef4027</string>
+	<key>PayloadOrganization</key>
+	<string>Duc Anh Zev - Đức Anh Zev Trùm File</string>
+	<key>PayloadRemovalDisallowed</key>
+	<false/>
+	<key>DurationUntilRemoval</key>
+	<integer>31536000</integer>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>a2d2e25c-7361-4d31-b66e-c7b435ef4027</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>
