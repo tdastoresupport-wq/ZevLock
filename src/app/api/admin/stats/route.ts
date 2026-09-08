@@ -4,7 +4,7 @@ import { adminOnly } from "@/lib/auth";
 
 /** GET /api/admin/stats */
 export async function GET(req: NextRequest) {
-  const denied = adminOnly(req);
+  const denied = await adminOnly(req);
   if (denied) return denied;
   return NextResponse.json(await adminStats());
 }

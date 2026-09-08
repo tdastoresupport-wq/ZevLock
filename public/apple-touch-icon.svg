@@ -1,5 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
-  <rect width="180" height="180" rx="40" fill="#05060f"/>
-  <text x="90" y="112" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-weight="800" font-size="52" fill="#ffffff" letter-spacing="3">ZEV</text>
-  <circle cx="90" cy="138" r="4" fill="#22d3ee"/>
+  <defs>
+    <linearGradient id="zb2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="0.6" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#d8b4fe"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="40" fill="#070912"/>
+  <circle cx="90" cy="90" r="62" fill="none" stroke="url(#zb2)" stroke-width="10"/>
+  <text x="90" y="116" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-weight="900" font-size="64" fill="#ffffff">Z</text>
+  <circle cx="128" cy="52" r="7" fill="#d8b4fe"/>
 </svg>

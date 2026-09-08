@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findDevice, getFunctions } from "@/lib/db";
+import { findDevice, getFunctions, touchLicense } from "@/lib/db";
 import { effectiveLicenseById } from "@/lib/license";
 import { getSessionToken, verifySession } from "@/lib/auth";
 import type { LicenseStatusResponse } from "@/lib/types";
@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   if (lic.status !== "ACTIVE") {
     return NextResponse.json({ error: `License is ${lic.status}`, code: lic.status.toLowerCase() }, { status: 403 });
   }
+  await touchLicense(lic.id);
 
   const device = deviceIdentifier ? await findDevice(lic.id, deviceIdentifier) : null;
   const functions = await getFunctions(lic.id);
@@ -24,6 +25,8 @@ export async function GET(req: NextRequest) {
     license: {
       key: lic.key, plan: lic.plan, status: lic.status,
       expires_at: lic.expires_at, device_limit: lic.device_limit, activated_at: lic.activated_at,
+      display_name: lic.display_name ?? null, avatar: lic.avatar ?? null,
+      created_at: lic.created_at,
     },
     device: {
       platform: device?.platform ?? "iPhone",

@@ -76,7 +76,7 @@ export function WelcomeModal({
               <Smartphone size={14} className="text-purple-300" /> {device} · Bound
             </p>
             <p className="flex items-center justify-center gap-1.5">
-              <ShieldCheck size={14} className="text-emerald-300" /> Secure session created
+              <ShieldCheck size={14} className="text-emerald-300" /> Session ready
             </p>
           </motion.div>
           <motion.div
@@ -128,7 +128,7 @@ export function LicenseModal({
           <p className="flex items-center justify-between">Device <b>{device.platform} · {device.status}</b></p>
         </div>
         <p className="mt-3 flex items-center justify-center gap-1 text-[11px] text-slate-500">
-          <BadgeCheck size={12} /> Protected by Zev Lock
+          <BadgeCheck size={12} /> Verified by Zev Lock
         </p>
       </div>
     </div>

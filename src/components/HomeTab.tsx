@@ -80,7 +80,7 @@ export function HomeTab({
             <div className="min-w-0">
               <h1 className="text-[20px] font-black leading-none tracking-[0.14em]">ZEV</h1>
               <p className="mt-1 truncate text-[12.5px] text-slate-200">
-                {greeting()} · Fully protected
+                {greeting()} · System ready
               </p>
             </div>
           </div>
@@ -144,7 +144,7 @@ export function HomeTab({
         />
         {standby.length > 0 && (
           <SystemGroup
-            title={`STANDBY · ${standby.length}`}
+            title={`INACTIVE · ${standby.length}`}
             dim
             keys={standby.map((f) => f.key)}
             functions={status.functions}

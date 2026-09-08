@@ -40,7 +40,28 @@ Local dev without a D1 binding uses an **in-memory demo store** seeded like
 - License: `ZEV-DEMO-2026-VIP1` (ACTIVE, expires 2031-03-16)
 - Expired: `ZEV-EXP1-RED0-0001`
 - Unused: `ZEV-NEW-USER-000001`
-- Admin: any request with header `x-admin-token: <ADMIN_API_TOKEN>` (default `dev-only-admin-token-change-me`)
+- Admin: sign in at `/admin` with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from your
+  local `.env.local` (dev). First sign-in provisions a SUPER_ADMIN (bcrypt hash).
+
+## Admin authentication & roles
+
+- Password login: `POST /api/admin/login` → HttpOnly `zev_admin` cookie (12h) + Bearer-capable token.
+- Roles: `SUPER_ADMIN` > `ADMIN` > `SUPPORT`. Destructive actions (revoke, delete) require `ADMIN`+.
+- Legacy `ADMIN_API_TOKEN` header still works for scripts (treated as super-admin).
+- Login is rate-limited (5/min/IP), failures are audited, passwords are bcrypt-hashed — never stored or logged in plaintext.
+- Production: `wrangler secret put ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_API_TOKEN`, `SESSION_SECRET`. Never commit secrets.
+
+## License durations & key presentation
+
+- Durations: `hour` · `day` · `week` · `month` · `custom` (days) · `permanent` (no expiry).
+- Each key can carry `display_name`, `avatar`, `notes` (admin-only, never shown to users).
+- Avatar values: `zev` (official character) · initials (`JD`) · `https://…` URL · `data:image/png|jpeg|webp` upload (≤96 KB, magic-byte verified server-side; rendered only, never executed).
+- `last_used_at` is written on every activation/status read; the admin table shows bound-device counts.
+
+## Device telemetry (honest layers)
+
+- Layer 1 (built in): browser facts only — CPU cores, memory estimate, screen, online/offline, connection, battery. Anything the browser hides renders as **Unavailable**, never fabricated.
+- Layer 2 (optional companion agent, not included): a local agent on the user's machine could expose real CPU/RAM/GPU/temperature over a secure `https://localhost` + token bridge; the UI already renders "Unavailable" states so an agent can plug in later without redesign. No agent protocol is finalized in V1.
 
 ## Character artwork
 
@@ -86,7 +107,9 @@ public/              icon.svg, apple-touch-icon.svg
 
 ## Security notes
 
-- All SQL is parameterized (`prepare().bind()`); all input validated with Zod server-side.
+- All SQL is parameterized (`prepare().bind()`); dynamic column names are whitelisted; all input validated with Zod server-side.
+- License decisions (expiry, status, device limits) are computed server-side from timestamps — the frontend is never trusted.
+- Secrets compared in constant time; admin tokens never accepted via URL query params.
 - No secrets in the client bundle; no browser-to-D1 access (all through API routes).
 - Sessions: HMAC-signed, 30-day TTL, HttpOnly cookie; Bearer fallback for installed PWAs.
 - Admin endpoints require `ADMIN_API_TOKEN`; destructive actions have confirm dialogs and audit logs.

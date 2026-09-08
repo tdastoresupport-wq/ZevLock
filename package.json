@@ -17,6 +17,7 @@
     "db:seed:local": "wrangler d1 execute zevlock-db --local --file=./migrations/0002_seed.sql"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "framer-motion": "^12.23.0",
     "lucide-react": "^0.469.0",
     "next": "^15.4.0",
@@ -29,6 +30,7 @@
     "@eslint/eslintrc": "^3.3.1",
     "@opennextjs/cloudflare": "^1.2.0",
     "@tailwindcss/postcss": "^4.1.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",

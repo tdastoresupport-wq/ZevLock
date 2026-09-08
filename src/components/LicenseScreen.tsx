@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { KeyRound, ShieldCheck, CircleAlert, Clock3 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getDeviceId, getPlatform } from "@/lib/device";
-import { Avatar } from "./HeroArt";
+import { BrandMark } from "./BrandMark";
 import type { LicenseStatusResponse } from "@/lib/types";
 
 type Phase = "input" | "checking" | "expired" | "error" | "success";
@@ -57,11 +57,11 @@ export function LicenseScreen({ onActivated }: { onActivated: (s: LicenseStatusR
     <div className="zev-top-pad flex min-h-dvh flex-col px-5 pb-10">
       {/* Branding */}
       <div className="mt-10 flex flex-col items-center text-center">
-        <Avatar size={84} />
+        <BrandMark size={76} />
         <h1 className="mt-5 text-[34px] font-black tracking-[0.28em]">ZEV</h1>
         <p className="mt-1 text-sm font-semibold tracking-[0.3em] text-cyan-300/90">LOCK</p>
         <p className="mt-4 max-w-[280px] text-[13px] leading-relaxed text-slate-400">
-          Enter your license key to activate this device and start your secure session.
+          Enter your key to get started.
         </p>
       </div>
 

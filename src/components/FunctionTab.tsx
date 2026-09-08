@@ -66,7 +66,7 @@ export function FunctionTab({
     <div className="space-y-5">
       <div className="pt-1">
         <h1 className="text-[22px] font-black">Control Center</h1>
-        <p className="mt-0.5 text-[12px] text-slate-400">Simulated presets — saved to your license.</p>
+        <p className="mt-0.5 text-[12px] text-slate-400">Tune each preset.</p>
       </div>
 
       {/* Master control */}
@@ -95,7 +95,7 @@ export function FunctionTab({
             )}
             style={{ minHeight: 44 }}
           >
-            {savingAll ? "Working…" : allOn ? "Standby all" : "Activate all"}
+            {savingAll ? "Working…" : allOn ? "Turn all off" : "Turn all on"}
           </motion.button>
         </div>
       </div>
@@ -111,7 +111,7 @@ export function FunctionTab({
         onHandle={(k) => void handle(k)}
       />
       <ControlGroup
-        title={`STANDBY · ${standby.length}`}
+        title={`INACTIVE · ${standby.length}`}
         items={standby}
         dim
         functions={functions}
@@ -161,7 +161,7 @@ function ControlGroup({
                 <p className="truncate text-[14px] font-bold">{f.name}</p>
                 <p className="truncate text-[11.5px] text-slate-400">{f.blurb} <span className="text-purple-300/70">· {f.tagline}</span></p>
                 <p className={cn("text-[10.5px] font-black tracking-wider", on ? "text-emerald-300" : "text-slate-500")}>
-                  {busy ? "SAVING…" : on ? "ENGAGED" : "STANDBY"}
+                  {busy ? "SAVING…" : on ? "ON" : "OFF"}
                 </p>
                 {failed === f.key && <p className="text-[11px] text-red-400">Save failed — rolled back, tap to retry.</p>}
               </div>
@@ -177,7 +177,7 @@ function ControlGroup({
 function ErrorStateInline() {
   return (
     <p className="pb-2 text-center text-[11px] text-slate-600">
-      Changes sync to your license instantly · simulated UI only
+      Changes save to your key instantly
     </p>
   );
 }
@@ -229,7 +229,7 @@ export async function persistMany(
       id: `${Date.now()}-all`,
       at: fmtTime(nowIso),
       iso: nowIso,
-      label: allOn ? "All systems enabled" : "All systems standby",
+      label: allOn ? "All systems on" : "All systems off",
       action: "Bulk update",
       kind: allOn ? "enabled" : "disabled",
     });

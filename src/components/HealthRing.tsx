@@ -52,9 +52,9 @@ export function HealthRing({ active, total }: { active: number; total: number })
       <div className="min-w-0">
         <p className="text-[11px] font-bold tracking-[0.2em] text-slate-400">SYSTEM HEALTH</p>
         <p className="mt-1 text-[15px] font-bold leading-snug">
-          {active === total && total > 0 ? "All systems running at full optimization." : active === 0 ? "All systems on standby." : `${active} of ${total} systems engaged.`}
+          {active === total && total > 0 ? "Everything is switched on." : active === 0 ? "Everything is switched off." : `${active} of ${total} switched on.`}
         </p>
-        <p className="mt-1 text-[12px] text-slate-400">Simulated presets · saved to your license</p>
+        <p className="mt-1 text-[12px] text-slate-400">Presets on this key</p>
       </div>
     </div>
   );

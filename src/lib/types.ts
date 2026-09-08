@@ -11,6 +11,24 @@ export interface License {
   created_at: string;
   activated_at: string | null;
   expires_at: string | null;
+  display_name?: string | null;
+  avatar?: string | null;
+  notes?: string | null;
+  last_used_at?: string | null;
+  /** Present on admin list responses only. */
+  bound_devices?: number;
+}
+
+export type AdminRole = "SUPER_ADMIN" | "ADMIN" | "SUPPORT";
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: AdminRole;
+  status: "ACTIVE" | "SUSPENDED";
+  created_at: string;
+  last_login_at: string | null;
 }
 
 export interface Device {
@@ -78,7 +96,10 @@ export interface ActivityEvent {
 }
 
 export interface LicenseStatusResponse {
-  license: Pick<License, "key" | "plan" | "status" | "expires_at" | "device_limit" | "activated_at">;
+  license: Pick<License, "key" | "plan" | "status" | "expires_at" | "device_limit" | "activated_at" | "created_at"> & {
+    display_name: string | null;
+    avatar: string | null;
+  };
   device: { platform: string; status: "BOUND" | "UNBOUND"; last_seen_at: string | null };
   functions: FunctionStates;
   session_expires_at: string;

@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import type { Device, FunctionStates, License } from "./types";
+import type { AdminUser, Device, FunctionStates, License } from "./types";
 
 /**
  * D1 access layer.
@@ -44,6 +44,7 @@ type MemDb = {
   sessions: Map<string, { id: string; license_id: string; device_id: string | null; expires_at: string; revoked_at: string | null }>;
   functions: Map<string, FunctionStates>;
   logs: { id: number; type: string; license_id: string | null; metadata: string | null; created_at: string }[];
+  users: Map<string, AdminUser & { password_hash: string }>;
 };
 
 const g = globalThis as unknown as { __zevMem?: MemDb };
@@ -67,6 +68,7 @@ function mem(): MemDb {
         { id: 3, type: "function.enabled", license_id: "lic_demo_vip1", metadata: '{"function":"stability_assist"}', created_at: "2026-09-06T22:31:17.000Z" },
         { id: 4, type: "function.disabled", license_id: "lic_demo_vip1", metadata: '{"function":"aim_hold"}', created_at: "2026-09-06T22:33:02.000Z" },
       ],
+      users: new Map(),
     };
   }
   return g.__zevMem;
@@ -86,6 +88,24 @@ function rowToLicense(r: Record<string, unknown>): License {
     created_at: String(r.created_at),
     activated_at: (r.activated_at as string | null) ?? null,
     expires_at: (r.expires_at as string | null) ?? null,
+    display_name: (r.display_name as string | null) ?? null,
+    avatar: (r.avatar as string | null) ?? null,
+    notes: (r.notes as string | null) ?? null,
+    last_used_at: (r.last_used_at as string | null) ?? null,
+    ...(r.bound_devices !== undefined ? { bound_devices: Number(r.bound_devices) } : {}),
+  };
+}
+
+function rowToAdmin(r: Record<string, unknown>): AdminUser & { password_hash: string } {
+  return {
+    id: String(r.id),
+    email: String(r.email ?? ""),
+    name: String(r.name ?? ""),
+    role: (r.role ?? "ADMIN") as AdminUser["role"],
+    status: ((r.status as string) ?? "ACTIVE") as AdminUser["status"],
+    created_at: String(r.created_at),
+    last_login_at: (r.last_login_at as string | null) ?? null,
+    password_hash: String(r.password_hash ?? ""),
   };
 }
 
@@ -132,32 +152,51 @@ export async function listLicenses(opts: { search?: string; status?: string; pla
   const d1 = getD1();
   if (!d1) {
     let items = [...mem().licenses.values()];
-    if (opts.search) items = items.filter((l) => l.key.includes(opts.search!));
+    if (opts.search) {
+      const s = opts.search;
+      items = items.filter((l) => l.key.includes(s) || (l.display_name ?? "").toUpperCase().includes(s));
+    }
     if (opts.status) items = items.filter((l) => l.status === opts.status);
     if (opts.plan) items = items.filter((l) => l.plan === opts.plan);
     items.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    return { items: items.slice(opts.offset, opts.offset + opts.limit), total: items.length };
+    const withCounts = items.map((l) => ({
+      ...l,
+      bound_devices: [...mem().devices.values()].filter((d) => d.license_id === l.id).length,
+    }));
+    return { items: withCounts.slice(opts.offset, opts.offset + opts.limit), total: items.length };
   }
   const where: string[] = [];
   const args: unknown[] = [];
-  if (opts.search) { where.push("key LIKE ?"); args.push(`%${opts.search}%`); }
+  if (opts.search) { where.push("(key LIKE ? OR display_name LIKE ?)"); args.push(`%${opts.search}%`, `%${opts.search}%`); }
   if (opts.status) { where.push("status = ?"); args.push(opts.status); }
   if (opts.plan) { where.push("plan = ?"); args.push(opts.plan); }
   const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const count = await d1.prepare(`SELECT COUNT(*) AS c FROM licenses ${clause}`).bind(...args).first<{ c: number }>();
-  const { results } = await d1.prepare(`SELECT * FROM licenses ${clause} ORDER BY created_at DESC LIMIT ? OFFSET ?`).bind(...args, opts.limit, opts.offset).all<Record<string, unknown>>();
+  const { results } = await d1.prepare(
+    `SELECT *, (SELECT COUNT(*) FROM devices d WHERE d.license_id = licenses.id) AS bound_devices
+     FROM licenses ${clause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+  ).bind(...args, opts.limit, opts.offset).all<Record<string, unknown>>();
   return { items: results.map(rowToLicense), total: Number(count?.c ?? 0) };
 }
+
+type LicensePatch = Partial<Pick<License,
+  "status" | "plan" | "device_limit" | "activated_at" | "expires_at" |
+  "display_name" | "avatar" | "notes" | "last_used_at">>;
+
+const LICENSE_PATCH_KEYS = new Set([
+  "status", "plan", "device_limit", "activated_at", "expires_at",
+  "display_name", "avatar", "notes", "last_used_at",
+]);
 
 export async function insertLicense(l: License): Promise<void> {
   const d1 = getD1();
   if (!d1) { mem().licenses.set(l.id, l); return; }
   await d1.prepare(
-    "INSERT INTO licenses (id, key, plan, status, device_limit, created_at, activated_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(l.id, l.key, l.plan, l.status, l.device_limit, l.created_at, l.activated_at, l.expires_at).run();
+    "INSERT INTO licenses (id, key, plan, status, device_limit, created_at, activated_at, expires_at, display_name, avatar, notes, last_used_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(l.id, l.key, l.plan, l.status, l.device_limit, l.created_at, l.activated_at, l.expires_at, l.display_name ?? null, l.avatar ?? null, l.notes ?? null, l.last_used_at ?? null).run();
 }
 
-export async function updateLicense(id: string, patch: Partial<Pick<License, "status" | "plan" | "device_limit" | "activated_at" | "expires_at">>): Promise<void> {
+export async function updateLicense(id: string, patch: LicensePatch): Promise<void> {
   const d1 = getD1();
   if (!d1) {
     const m = mem();
@@ -167,9 +206,18 @@ export async function updateLicense(id: string, patch: Partial<Pick<License, "st
   }
   const sets: string[] = [];
   const args: unknown[] = [];
-  for (const [k, v] of Object.entries(patch)) { sets.push(`${k} = ?`); args.push(v); }
+  for (const [k, v] of Object.entries(patch)) {
+    if (!LICENSE_PATCH_KEYS.has(k)) continue; // never trust dynamic column names
+    sets.push(`${k} = ?`);
+    args.push(v);
+  }
   if (!sets.length) return;
   await d1.prepare(`UPDATE licenses SET ${sets.join(", ")} WHERE id = ?`).bind(...args, id).run();
+}
+
+/** Record real usage (called on activate + status reads). */
+export async function touchLicense(id: string): Promise<void> {
+  await updateLicense(id, { last_used_at: now() });
 }
 
 export async function deleteLicense(id: string): Promise<void> {
@@ -298,13 +346,54 @@ export async function listLogs(limit: number, offset: number): Promise<{ id: num
   return results;
 }
 
-export async function adminStats(): Promise<{ licenses_total: number; licenses_active: number; devices_total: number; sessions_24h: number }> {
+/* ---------------- admin users ---------------- */
+
+export async function countAdmins(): Promise<number> {
+  const d1 = getD1();
+  if (!d1) return mem().users.size;
+  const row = await d1.prepare("SELECT COUNT(*) AS c FROM users WHERE email IS NOT NULL").bind().first<{ c: number }>();
+  return Number(row?.c ?? 0);
+}
+
+export async function findAdminByEmail(email: string): Promise<(AdminUser & { password_hash: string }) | null> {
+  const d1 = getD1();
+  if (!d1) {
+    const found = [...mem().users.values()].find((u) => u.email.toLowerCase() === email.toLowerCase());
+    return found ?? null;
+  }
+  const row = await d1.prepare("SELECT * FROM users WHERE email = ? LIMIT 1").bind(email).first<Record<string, unknown>>();
+  return row ? rowToAdmin(row) : null;
+}
+
+export async function createAdmin(a: AdminUser & { password_hash: string }): Promise<void> {
+  const d1 = getD1();
+  if (!d1) { mem().users.set(a.id, a); return; }
+  await d1.prepare(
+    "INSERT INTO users (id, role, created_at, email, password_hash, name, status, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(a.id, a.role, a.created_at, a.email, a.password_hash, a.name, a.status, a.last_login_at).run();
+}
+
+export async function updateAdminLogin(id: string): Promise<void> {
+  const d1 = getD1();
+  if (!d1) { const u = mem().users.get(id); if (u) u.last_login_at = now(); return; }
+  await d1.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").bind(now(), id).run();
+}
+
+/* ---------------- stats ---------------- */
+
+export async function adminStats(): Promise<{
+  licenses_total: number; licenses_active: number; licenses_expired: number;
+  licenses_revoked: number; devices_total: number; sessions_24h: number;
+}> {
   const d1 = getD1();
   if (!d1) {
     const m = mem();
+    const lic = [...m.licenses.values()];
     return {
-      licenses_total: m.licenses.size,
-      licenses_active: [...m.licenses.values()].filter((l) => l.status === "ACTIVE").length,
+      licenses_total: lic.length,
+      licenses_active: lic.filter((l) => l.status === "ACTIVE").length,
+      licenses_expired: lic.filter((l) => l.status === "EXPIRED").length,
+      licenses_revoked: lic.filter((l) => l.status === "REVOKED").length,
       devices_total: m.devices.size,
       sessions_24h: m.sessions.size,
     };
@@ -313,6 +402,8 @@ export async function adminStats(): Promise<{ licenses_total: number; licenses_a
   return {
     licenses_total: Number(await q("SELECT COUNT(*) AS c FROM licenses")),
     licenses_active: Number(await q("SELECT COUNT(*) AS c FROM licenses WHERE status = 'ACTIVE'")),
+    licenses_expired: Number(await q("SELECT COUNT(*) AS c FROM licenses WHERE status = 'EXPIRED'")),
+    licenses_revoked: Number(await q("SELECT COUNT(*) AS c FROM licenses WHERE status = 'REVOKED'")),
     devices_total: Number(await q("SELECT COUNT(*) AS c FROM devices")),
     sessions_24h: Number(await q("SELECT COUNT(*) AS c FROM sessions WHERE created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day')")),
   };

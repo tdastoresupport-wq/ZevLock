@@ -4,7 +4,7 @@ import { adminOnly } from "@/lib/auth";
 
 /** POST /api/admin/licenses/:id/revoke — REVOKE (permanent, sessions revoked). */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = adminOnly(req);
+  const denied = await adminOnly(req, "ADMIN");
   if (denied) return denied;
   const lic = await findLicenseById((await params).id);
   if (!lic) return NextResponse.json({ error: "License not found", code: "not_found" }, { status: 404 });

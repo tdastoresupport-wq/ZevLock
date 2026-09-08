@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   addLog, countDevices, createSession, findDevice, findLicenseByKey,
-  getFunctions, setFunctions, updateLicense, upsertDevice,
+  getFunctions, setFunctions, touchLicense, updateLicense, upsertDevice,
 } from "@/lib/db";
 import { effectiveLicense } from "@/lib/license";
 import { rateLimit, signSession, tooMany } from "@/lib/auth";
@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
   const sessionExp = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
   await createSession({ id: sid, license_id: eff.id, device_id: device.id, expires_at: sessionExp });
   await addLog("session.created", eff.id, device.id, { platform });
+  await touchLicense(eff.id);
 
   const token = await signSession(sid, eff.id, SESSION_TTL_SECONDS);
   const res = NextResponse.json({ token, expires_at: sessionExp, plan: eff.plan });

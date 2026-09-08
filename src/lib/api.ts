@@ -46,6 +46,8 @@ export const api = {
 
   logout: () => req<{ ok: true }>(`/api/session/logout`, { method: "POST" }),
 
+  deviceReset: () => req<{ ok: true }>(`/api/device/reset`, { method: "POST" }),
+
   deviceCurrent: () => req<{ device: unknown }>(`/api/device/current`),
 
   saveToken: (t: string) => window.localStorage.setItem("zev_token", t),
@@ -59,6 +61,7 @@ export function adminHeaders(): Record<string, string> {
 
 export async function adminReq<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
+    credentials: "same-origin",
     ...init,
     headers: { ...JSON_HEADERS, ...adminHeaders(), ...((init?.headers as Record<string, string>) ?? {}) },
   });
@@ -66,3 +69,12 @@ export async function adminReq<T>(path: string, init?: RequestInit): Promise<T> 
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data as T;
 }
+
+export const adminAuth = {
+  login: (email: string, password: string) =>
+    adminReq<{ token: string; admin: { id: string; email: string; name: string; role: string } }>(
+      `/api/admin/login`, { method: "POST", body: JSON.stringify({ email, password }) }
+    ),
+  me: () => adminReq<{ admin: { id: string; email: string; name: string; role: string } }>(`/api/admin/me`),
+  logout: () => adminReq<{ ok: true }>(`/api/admin/logout`, { method: "POST" }),
+};

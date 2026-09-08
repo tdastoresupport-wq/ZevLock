@@ -4,7 +4,7 @@ import { adminOnly } from "@/lib/auth";
 
 /** GET /api/admin/devices */
 export async function GET(req: NextRequest) {
-  const denied = adminOnly(req);
+  const denied = await adminOnly(req);
   if (denied) return denied;
   const q = req.nextUrl.searchParams;
   const page = Math.max(1, Number(q.get("page") ?? 1) || 1);

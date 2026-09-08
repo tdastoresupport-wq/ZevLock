@@ -6,7 +6,7 @@ import { addDaysIso } from "@/lib/keys";
 
 /** POST /api/admin/licenses/:id/extend — EXTEND EXPIRY { extra_days }. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = adminOnly(req);
+  const denied = await adminOnly(req);
   if (denied) return denied;
   const lic = await findLicenseById((await params).id);
   if (!lic) return NextResponse.json({ error: "License not found", code: "not_found" }, { status: 404 });

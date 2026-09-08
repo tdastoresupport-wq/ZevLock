@@ -1,22 +1,23 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Home, SlidersHorizontal, Activity } from "lucide-react";
+import { Home, SlidersHorizontal, Activity, UserRound } from "lucide-react";
 import { playClick } from "@/lib/sound";
 import { cn } from "@/lib/cn";
 
-export type Tab = "home" | "function" | "realtime";
+export type Tab = "home" | "function" | "realtime" | "account";
 
 const ITEMS: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "function", label: "Function", icon: SlidersHorizontal },
   { id: "realtime", label: "Realtime", icon: Activity },
+  { id: "account", label: "Account", icon: UserRound },
 ];
 
 export function BottomNav({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
     <nav className="zev-tabbar fixed bottom-0 left-1/2 z-40 w-full max-w-[480px] -translate-x-1/2" aria-label="Primary">
-      <div className="grid grid-cols-3 px-4">
+      <div className="grid grid-cols-4 px-2">
         {ITEMS.map((item) => {
           const active = tab === item.id;
           const Icon = item.icon;

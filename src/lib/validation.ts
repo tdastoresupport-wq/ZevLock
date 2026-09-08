@@ -29,10 +29,33 @@ export const updateFunctionsSchema = z.object({
   states: z.object(optionalBooleans),
 });
 
+export const durationPresetSchema = z.enum(["hour", "day", "week", "month", "custom", "permanent"]);
+
 export const createLicenseSchema = z.object({
   plan: z.string().trim().min(1).max(64).default("Premium"),
-  duration_days: z.number().int().min(1).max(3650).default(30),
+  duration_preset: durationPresetSchema.default("month"),
+  /** Required when duration_preset is "custom". Ignored for "permanent". */
+  custom_days: z.number().int().min(1).max(3650).optional(),
+  /** Back-compat for older clients that still send duration_days. */
+  duration_days: z.number().int().min(1).max(3650).optional(),
   device_limit: z.number().int().min(1).max(10).default(1),
+  display_name: z.string().trim().min(1).max(64).optional(),
+  avatar: z.string().max(200_000).optional(),
+  notes: z.string().trim().max(500).optional(),
+});
+
+export const editLicenseSchema = z.object({
+  display_name: z.string().trim().min(1).max(64).nullable().optional(),
+  avatar: z.string().max(200_000).nullable().optional(),
+  notes: z.string().trim().max(500).nullable().optional(),
+  plan: z.string().trim().min(1).max(64).optional(),
+  device_limit: z.number().int().min(1).max(10).optional(),
+  expires_at: z.string().max(64).nullable().optional(),
+});
+
+export const adminLoginSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(128),
+  password: z.string().min(1).max(128),
 });
 
 export const extendLicenseSchema = z.object({

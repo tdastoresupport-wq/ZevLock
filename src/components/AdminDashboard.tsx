@@ -2,67 +2,116 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  BadgeCheck, Ban, Copy, Eye, KeyRound, Plus, RefreshCcw, Smartphone, Trash2, Play, Search,
+  Ban, Copy, Eye, KeyRound, Pencil, Plus, RefreshCcw, Search, ShieldCheck, Smartphone, Trash2,
 } from "lucide-react";
-import { adminReq } from "@/lib/api";
+import { adminAuth, adminReq } from "@/lib/api";
 import { Card, ConfirmDialog, ErrorState, Label, Skeleton } from "@/components/ui";
-import { fmtDate } from "@/lib/format";
+import { BrandMark } from "@/components/BrandMark";
+import { KeyAvatar } from "@/components/KeyAvatar";
+import { fmtDate, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { License } from "@/lib/types";
 
 type AdminTab = "overview" | "licenses" | "devices" | "logs";
 
-interface Stats { licenses_total: number; licenses_active: number; devices_total: number; sessions_24h: number }
+interface AdminMe { id: string; email: string; name: string; role: string }
+interface Stats {
+  licenses_total: number; licenses_active: number; licenses_expired: number;
+  licenses_revoked: number; devices_total: number; sessions_24h: number;
+}
 interface LogRow { id: number; type: string; license_id: string | null; metadata: string | null; created_at: string }
 interface DeviceRow { id: string; license_id: string; device_identifier: string; platform: string; last_seen_at: string }
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10",
-  UNUSED: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10",
+  UNUSED: "text-sky-300 border-sky-500/30 bg-sky-500/10",
   EXPIRED: "text-amber-300 border-amber-500/30 bg-amber-500/10",
   SUSPENDED: "text-orange-300 border-orange-500/30 bg-orange-500/10",
   REVOKED: "text-red-300 border-red-500/30 bg-red-500/10",
+  BOUND: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10",
+  UNBOUND: "text-slate-400 border-white/10 bg-white/5",
 };
 
+const canDestroy = (role: string) => role === "SUPER_ADMIN" || role === "ADMIN";
+
 export function AdminDashboard() {
-  const [authed, setAuthed] = useState(false);
-  const [tokenInput, setTokenInput] = useState("");
+  const [me, setMe] = useState<AdminMe | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<AdminTab>("licenses");
 
   useEffect(() => {
-    if (localStorage.getItem("zev_admin_token")) setAuthed(true);
+    adminAuth.me()
+      .then((r) => setMe(r.admin))
+      .catch(() => setMe(null))
+      .finally(() => setChecking(false));
   }, []);
 
   async function login() {
     setAuthError("");
-    localStorage.setItem("zev_admin_token", tokenInput);
+    setBusy(true);
     try {
-      await adminReq("/api/admin/stats");
-      setAuthed(true);
+      const res = await adminAuth.login(email.trim(), password);
+      try { localStorage.setItem("zev_admin_token", res.token); } catch { /* ignore */ }
+      setMe(res.admin);
     } catch {
-      localStorage.removeItem("zev_admin_token");
-      setAuthError("Invalid admin token.");
+      setAuthError("Invalid email or password.");
+    } finally {
+      setBusy(false);
     }
   }
 
-  if (!authed) {
+  async function logout() {
+    try { await adminAuth.logout(); } catch { /* ignore */ }
+    try { localStorage.removeItem("zev_admin_token"); } catch { /* ignore */ }
+    setMe(null);
+  }
+
+  if (checking) {
+    return (
+      <div className="zev-top-pad mx-auto flex min-h-dvh w-full max-w-[480px] items-center justify-center px-5">
+        <BrandMark size={64} />
+      </div>
+    );
+  }
+
+  if (!me) {
     return (
       <div className="zev-top-pad mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-5 pb-10">
-        <h1 className="mt-14 text-center text-2xl font-black tracking-[0.2em]">ZEV ADMIN</h1>
+        <div className="mt-12 flex flex-col items-center">
+          <BrandMark size={64} />
+          <h1 className="mt-4 text-center text-2xl font-black tracking-[0.2em]">ZEV ADMIN</h1>
+        </div>
         <Card className="mt-6">
-          <Label>ADMIN TOKEN</Label>
+          <Label>EMAIL</Label>
           <input
-            type="password"
-            className="zev-input mt-2 font-mono normal-case tracking-normal"
-            placeholder="Enter admin token"
-            value={tokenInput}
-            onChange={(e) => setTokenInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") void login(); }}
+            type="email"
+            autoComplete="username"
+            className="zev-input mt-1.5 !tracking-normal"
+            placeholder="admin@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
-          {authError && <p className="mt-2 text-[13px] text-red-400">{authError}</p>}
-          <button className="zev-btn-primary mt-4" onClick={() => void login()}>Sign in</button>
-          <p className="mt-3 text-center text-[11px] text-slate-500">Token lives only in this browser. Set it via <span className="font-mono">ADMIN_API_TOKEN</span>.</p>
+          <div className="mt-3">
+            <Label>PASSWORD</Label>
+            <input
+              type="password"
+              autoComplete="current-password"
+              className="zev-input mt-1.5 !tracking-normal"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") void login(); }}
+            />
+          </div>
+          {authError && <p className="mt-2 text-[13px] text-red-400" role="alert">{authError}</p>}
+          <button className="zev-btn-primary mt-4" disabled={busy} onClick={() => void login()}>
+            {busy ? "Signing in…" : "Sign in"}
+          </button>
+          <p className="mt-3 text-center text-[11px] text-slate-500">First run: uses ADMIN_EMAIL / ADMIN_PASSWORD from the server environment.</p>
         </Card>
       </div>
     );
@@ -71,19 +120,27 @@ export function AdminDashboard() {
   return (
     <div className="zev-top-pad mx-auto min-h-dvh w-full max-w-[860px] px-4 pb-10">
       <div className="flex items-center justify-between pt-1">
-        <h1 className="text-xl font-black tracking-[0.18em]">ZEV ADMIN</h1>
-        <button
-          className="zev-btn-ghost text-xs"
-          onClick={() => { localStorage.removeItem("zev_admin_token"); setAuthed(false); }}
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-2.5">
+          <BrandMark size={30} />
+          <h1 className="text-lg font-black tracking-[0.18em]">ZEV ADMIN</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border border-purple-300/30 bg-purple-500/10 px-2.5 py-1 text-[10px] font-black tracking-wider text-purple-200">
+            {me.role}
+          </span>
+          <button className="zev-btn-ghost !px-3 !py-1.5 text-xs" onClick={() => void logout()}>
+            Sign out
+          </button>
+        </div>
       </div>
+      <p className="mt-1 text-[12px] text-slate-500">{me.name} · {me.email}</p>
 
-      <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto">
+      <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto" role="tablist" aria-label="Admin sections">
         {(["overview", "licenses", "devices", "logs"] as AdminTab[]).map((t) => (
           <button
             key={t}
+            role="tab"
+            aria-selected={tab === t}
             onClick={() => setTab(t)}
             className={cn(
               "rounded-full border px-4 py-2 text-[13px] font-bold capitalize",
@@ -97,7 +154,7 @@ export function AdminDashboard() {
 
       <div className="mt-4">
         {tab === "overview" && <Overview />}
-        {tab === "licenses" && <Licenses />}
+        {tab === "licenses" && <Licenses role={me.role} />}
         {tab === "devices" && <Devices />}
         {tab === "logs" && <Logs />}
       </div>
@@ -132,28 +189,30 @@ function Overview() {
   if (!stats) return <div className="grid grid-cols-2 gap-3"><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /></div>;
 
   const cards: [string, number][] = [
-    ["Total licenses", stats.licenses_total],
-    ["Active", stats.licenses_active],
+    ["Active keys", stats.licenses_active],
+    ["Expired keys", stats.licenses_expired],
+    ["Revoked keys", stats.licenses_revoked],
+    ["Total keys", stats.licenses_total],
     ["Bound devices", stats.devices_total],
     ["Sessions (24h)", stats.sessions_24h],
   ];
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {cards.map(([label, v]) => (
           <Card key={label}>
             <Label>{label.toUpperCase()}</Label>
-            <p className="mt-1 text-2xl font-black">{v}</p>
+            <p className="tnum mt-1 text-2xl font-black">{v}</p>
           </Card>
         ))}
       </div>
       <Card>
-        <Label>LATEST EVENTS</Label>
+        <Label>RECENT ACTIVITY</Label>
         <div className="mt-2 space-y-2">
           {logs.map((l) => (
-            <div key={l.id} className="flex items-center justify-between text-[13px]">
-              <span className="font-mono text-slate-300">{l.type}</span>
-              <span className="font-mono text-[11px] text-slate-500">{new Date(l.created_at).toLocaleString("en-GB", { hour12: false })}</span>
+            <div key={l.id} className="flex items-center justify-between gap-2 text-[13px]">
+              <span className="truncate font-mono text-slate-300">{l.type}</span>
+              <span className="shrink-0 font-mono text-[11px] text-slate-500">{new Date(l.created_at).toLocaleString("en-GB", { hour12: false })}</span>
             </div>
           ))}
           {logs.length === 0 && <p className="text-[13px] text-slate-500">No events yet.</p>}
@@ -165,7 +224,7 @@ function Overview() {
 
 /* ------------------------------ Licenses ------------------------------ */
 
-function Licenses() {
+function Licenses({ role }: { role: string }) {
   const [items, setItems] = useState<License[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -174,8 +233,8 @@ function Licenses() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [selected, setSelected] = useState<License | null>(null);
-  const [confirm, setConfirm] = useState<null | { title: string; body: string; label: string; danger?: boolean; run: () => Promise<void> }>(null);
+  const [editing, setEditing] = useState<License | null>(null);
+  const [confirm, setConfirm] = useState<null | { title: string; body: string; label: string; run: () => Promise<void> }>(null);
   const [notice, setNotice] = useState("");
 
   const load = useCallback(async (p = page) => {
@@ -190,7 +249,7 @@ function Licenses() {
       setTotal(res.total);
       setPage(p);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load licenses");
+      setError(e instanceof Error ? e.message : "Failed to load keys");
     } finally {
       setLoading(false);
     }
@@ -199,34 +258,38 @@ function Licenses() {
   useEffect(() => { void load(1); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function act(path: string, init?: RequestInit) {
+  async function run(path: string, init?: RequestInit, msg = "Done.") {
     setNotice("");
-    const res = await adminReq<{ license?: License }>(path, init);
-    setNotice("Done.");
-    if (selected && res.license) setSelected(res.license);
+    await adminReq(path, init);
+    setNotice(msg);
     await load();
   }
 
-  function askDestructive(title: string, body: string, label: string, run: () => Promise<void>) {
-    setConfirm({ title, body, label, danger: true, run: async () => { await run(); setConfirm(null); } });
+  async function copyKey(key: string) {
+    try { await navigator.clipboard.writeText(key); setNotice("Key copied."); } catch { /* ignore */ }
   }
 
   return (
     <div className="space-y-3">
-      {notice && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-center text-[13px] text-emerald-200">{notice}</p>}
+      {notice && (
+        <p role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-center text-[13px] text-emerald-200">
+          {notice}
+        </p>
+      )}
 
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             className="zev-input pl-10 !tracking-normal"
-            placeholder="Search key…"
+            placeholder="Search key or name…"
+            aria-label="Search keys"
             value={search}
-            onChange={(e) => setSearch(e.target.value.toUpperCase())}
+            onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") void load(1); }}
           />
         </div>
-        <select value={statusF} onChange={(e) => setStatusF(e.target.value)} className="zev-input w-[128px] !tracking-normal">
+        <select value={statusF} onChange={(e) => setStatusF(e.target.value)} aria-label="Filter by status" className="zev-input w-[128px] !tracking-normal">
           <option value="">All</option>
           {["UNUSED", "ACTIVE", "EXPIRED", "SUSPENDED", "REVOKED"].map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -234,69 +297,143 @@ function Licenses() {
       <div className="flex gap-2">
         <button className="zev-btn-ghost flex-1" onClick={() => void load(1)}>Apply filters</button>
         <button className="flex flex-1 items-center justify-center gap-1.5 rounded-[14px] bg-violet-600 p-[11px] text-sm font-bold" onClick={() => setShowCreate(true)}>
-          <Plus size={16} /> New license
+          <Plus size={16} /> New key
         </button>
       </div>
 
       {error && <ErrorState message={error} onRetry={() => void load()} />}
-      {loading && (<><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></>)}
+      {loading && (<><Skeleton className="h-28 w-full" /><Skeleton className="h-28 w-full" /></>)}
 
       {!loading && items.map((l) => (
-        <Card key={l.id} className="space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <p className="break-all font-mono text-[13px] font-bold">{l.key}</p>
-            <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black", STATUS_COLORS[l.status])}>{l.status}</span>
+        <Card key={l.id} className="space-y-2.5">
+          <div className="flex items-center gap-2.5">
+            <KeyAvatar value={l.avatar} name={l.display_name || l.key} size={40} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-black">{l.display_name || "Unnamed key"}</p>
+              <p className="truncate font-mono text-[11px] text-slate-500">{l.key}</p>
+            </div>
+            <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black", STATUS_COLORS[l.status])}>
+              {l.status}
+            </span>
           </div>
-          <p className="text-xs text-slate-400">{l.plan} · limit {l.device_limit} · exp {fmtDate(l.expires_at)} · {fmtDate(l.created_at)}</p>
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            <button className="zev-btn-ghost !px-2.5 !py-1.5 text-xs" title="Copy" onClick={() => { void navigator.clipboard.writeText(l.key); setNotice("License key copied."); }}><Copy size={14} /></button>
-            <button className="zev-btn-ghost !px-2.5 !py-1.5 text-xs" title="View" onClick={() => setSelected(l)}><Eye size={14} /></button>
-            <button className="zev-btn-ghost !px-2.5 !py-1.5 text-xs" title="Extend +30d" onClick={() => void act(`/api/admin/licenses/${l.id}/extend`, { method: "POST", body: JSON.stringify({ extra_days: 30 }) })}>+30d</button>
-            <button className="zev-btn-ghost !px-2.5 !py-1.5 text-xs" title="Reset device" onClick={() => void act(`/api/admin/licenses/${l.id}/reset-device`, { method: "POST" })}><Smartphone size={14} /></button>
-            {l.status !== "SUSPENDED" && l.status !== "REVOKED" && (
-              <button className="zev-btn-ghost !px-2.5 !py-1.5 text-xs" title="Suspend" onClick={() => askDestructive("Suspend license?", `${l.key} will stop working immediately.`, "Suspend", () => act(`/api/admin/licenses/${l.id}/suspend`, { method: "POST" }))}><Ban size={14} /></button>
-            )}
+          <p className="text-xs text-slate-400">
+            {l.plan} · {l.bound_devices ?? 0}/{l.device_limit} devices · exp {l.expires_at ? fmtDate(l.expires_at) : "Never"} · used {l.last_used_at ? timeAgo(l.last_used_at) : "never"}
+          </p>
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+            <RowBtn title="Copy key" onClick={() => void copyKey(l.key)}><Copy size={14} /></RowBtn>
+            <RowBtn title="View / edit" onClick={() => setEditing(l)}><Eye size={14} /></RowBtn>
+            <RowBtn title="Extend 30 days" label="+30d" onClick={() => void run(`/api/admin/licenses/${l.id}/extend`, { method: "POST", body: JSON.stringify({ extra_days: 30 }) })} />
+            <RowBtn title="Unbind devices" onClick={() => void run(`/api/admin/licenses/${l.id}/reset-device`, { method: "POST" }, "Devices unbound.")}><Smartphone size={14} /></RowBtn>
             {(l.status === "UNUSED" || l.status === "SUSPENDED" || l.status === "EXPIRED") && (
-              <button className="zev-btn-ghost !px-2.5 !py-1.5 text-xs" title="Activate" onClick={() => void act(`/api/admin/licenses/${l.id}/activate`, { method: "POST", body: JSON.stringify({}) })}><Play size={14} /></button>
+              <RowBtn title="Activate" onClick={() => void run(`/api/admin/licenses/${l.id}/activate`, { method: "POST", body: JSON.stringify({}) }, "Key activated.")}>
+                <ShieldCheck size={14} />
+              </RowBtn>
             )}
-            {l.status !== "REVOKED" && (
-              <button className="zev-btn-ghost !px-2.5 !py-1.5 text-xs !text-red-300" title="Revoke" onClick={() => askDestructive("Revoke license?", `${l.key} will be permanently revoked.`, "Revoke", () => act(`/api/admin/licenses/${l.id}/revoke`, { method: "POST" }))}><RefreshCcw size={14} /></button>
+            {l.status !== "SUSPENDED" && l.status !== "REVOKED" && (
+              <RowBtn title="Suspend" onClick={() => setConfirm({ title: "Suspend key?", body: `${l.display_name || l.key} stops working immediately.`, label: "Suspend", run: () => run(`/api/admin/licenses/${l.id}/suspend`, { method: "POST" }, "Key suspended.") })}>
+                <Ban size={14} />
+              </RowBtn>
             )}
-            <button className="zev-btn-ghost !px-2.5 !py-1.5 text-xs !text-red-300" title="Delete" onClick={() => askDestructive("Delete license?", `${l.key} and its devices/sessions will be removed.`, "Delete", () => act(`/api/admin/licenses/${l.id}`, { method: "DELETE" }))}><Trash2 size={14} /></button>
+            {canDestroy(role) && l.status !== "REVOKED" && (
+              <RowBtn title="Revoke" danger onClick={() => setConfirm({ title: "Revoke key?", body: `${l.display_name || l.key} is permanently revoked.`, label: "Revoke", run: () => run(`/api/admin/licenses/${l.id}/revoke`, { method: "POST" }, "Key revoked.") })}>
+                <RefreshCcw size={14} />
+              </RowBtn>
+            )}
+            {canDestroy(role) && (
+              <RowBtn title="Delete" danger onClick={() => setConfirm({ title: "Delete key?", body: "The key, its devices and sessions are removed.", label: "Delete", run: () => run(`/api/admin/licenses/${l.id}`, { method: "DELETE" }, "Key deleted.") })}>
+                <Trash2 size={14} />
+              </RowBtn>
+            )}
           </div>
         </Card>
       ))}
-      {!loading && items.length === 0 && !error && <Card><p className="text-center text-sm text-slate-400">No licenses match.</p></Card>}
+      {!loading && items.length === 0 && !error && <Card><p className="text-center text-sm text-slate-400">No keys match.</p></Card>}
 
-      {/* Pagination */}
       <div className="flex items-center justify-between text-[13px] text-slate-400">
         <button className="zev-btn-ghost" disabled={page <= 1} onClick={() => void load(page - 1)}>Prev</button>
         <span>Page {page} · {total} total</span>
         <button className="zev-btn-ghost" disabled={page * 10 >= total} onClick={() => void load(page + 1)}>Next</button>
       </div>
 
-      {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); void load(1); }} />}
-      {selected && (
-        <DetailModal
-          license={selected}
-          onClose={() => setSelected(null)}
-          onChanged={(l) => { setSelected(l); void load(); }}
+      {showCreate && <KeyCreator onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); void load(1); }} />}
+      {editing && (
+        <KeyEditor
+          license={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(l) => { setEditing(null); setNotice("Key updated."); void load(); if (l) setEditing(l); }}
         />
       )}
       {confirm && (
-        <ConfirmDialog title={confirm.title} body={confirm.body} confirmLabel={confirm.label} danger={confirm.danger} onConfirm={confirm.run} onCancel={() => setConfirm(null)} />
+        <ConfirmDialog title={confirm.title} body={confirm.body} confirmLabel={confirm.label} danger onConfirm={async () => { await confirm.run(); setConfirm(null); }} onCancel={() => setConfirm(null)} />
       )}
     </div>
   );
 }
 
-function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function RowBtn({ children, title, label, danger, onClick }: {
+  children?: React.ReactNode; title: string; label?: string; danger?: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      className={cn("zev-btn-ghost !px-2.5 !py-1.5 text-xs", danger && "!text-red-300")}
+    >
+      {children ?? label}
+    </button>
+  );
+}
+
+/* ------------------------------ Key creator (3 steps) ------------------------------ */
+
+const DURATIONS = [
+  { id: "hour", label: "1 hour" },
+  { id: "day", label: "1 day" },
+  { id: "week", label: "1 week" },
+  { id: "month", label: "1 month" },
+  { id: "custom", label: "Custom" },
+  { id: "permanent", label: "Permanent" },
+];
+
+function KeyCreator({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [step, setStep] = useState(1);
   const [plan, setPlan] = useState("Premium");
-  const [days, setDays] = useState(30);
+  const [duration, setDuration] = useState("month");
+  const [customDays, setCustomDays] = useState(90);
   const [limit, setLimit] = useState(1);
+  const [name, setName] = useState("");
+  const [avatar, setAvatar] = useState("zev");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [initials, setInitials] = useState("");
+  const [notes, setNotes] = useState("");
   const [result, setResult] = useState<License | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  function avatarValue(): string | undefined {
+    if (avatar === "upload") return avatarUrl || undefined;
+    if (avatar === "url") return avatarUrl.trim() || undefined;
+    if (avatar === "initials") return initials.trim().toUpperCase().slice(0, 4) || undefined;
+    return "zev";
+  }
+
+  async function onFile(file: File | undefined) {
+    setError("");
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setError("Only PNG, JPEG, or WebP images.");
+      return;
+    }
+    if (file.size > 96 * 1024) {
+      setError("Image must be under 96 KB.");
+      return;
+    }
+    const data = await file.arrayBuffer().then(
+      (buf) => `data:${file.type};base64,${btoa(String.fromCharCode(...new Uint8Array(buf)))}`
+    );
+    setAvatarUrl(data);
+  }
 
   async function generate() {
     try {
@@ -304,7 +441,15 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
       setError("");
       const res = await adminReq<{ license: License }>("/api/admin/licenses", {
         method: "POST",
-        body: JSON.stringify({ plan, duration_days: days, device_limit: limit }),
+        body: JSON.stringify({
+          plan,
+          duration_preset: duration,
+          custom_days: duration === "custom" ? customDays : undefined,
+          device_limit: limit,
+          display_name: name.trim() || undefined,
+          avatar: avatarValue(),
+          notes: notes.trim() || undefined,
+        }),
       });
       setResult(res.license);
       onCreated();
@@ -317,47 +462,121 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center" onClick={onClose}>
-      <div className="zev-card w-full max-w-[440px] p-5" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-base font-black">CREATE LICENSE</h3>
-        <div className="mt-4 space-y-3">
-          <div>
-            <Label>PLAN</Label>
-            <select value={plan} onChange={(e) => setPlan(e.target.value)} className="zev-input mt-1.5 !tracking-normal">
-              <option>Premium</option>
-              <option>VIP Plus</option>
-              <option>Trial</option>
-            </select>
-          </div>
-          <div>
-            <Label>DURATION</Label>
-            <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="zev-input mt-1.5 !tracking-normal">
-              <option value={7}>7 Days</option>
-              <option value={30}>30 Days</option>
-              <option value={90}>90 Days</option>
-              <option value={365}>365 Days</option>
-            </select>
-          </div>
-          <div>
-            <Label>DEVICE LIMIT</Label>
-            <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="zev-input mt-1.5 !tracking-normal">
-              {[1, 2, 3, 5].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </div>
-        </div>
-        {error && <p className="mt-2 text-[13px] text-red-400">{error}</p>}
-        {result && (
-          <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
-            <p className="break-all font-mono text-sm font-bold text-emerald-200">{result.key}</p>
-            <p className="mt-1 text-xs text-emerald-100/70">{result.plan} · exp {fmtDate(result.expires_at)} · limit {result.device_limit}</p>
-            <button className="zev-btn-ghost mt-2 w-full text-xs" onClick={() => { void navigator.clipboard.writeText(result.key); }}>Copy key</button>
+      <div className="zev-card max-h-[88dvh] w-full max-w-[440px] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-black">NEW KEY · STEP {Math.min(step, 3)} OF 3</h3>
+
+        {step === 1 && (
+          <div className="mt-4 space-y-3">
+            <div>
+              <Label>PLAN</Label>
+              <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                {["Free", "Premium", "VIP"].map((p) => (
+                  <button key={p} onClick={() => setPlan(p)} className={cn("rounded-xl border px-2 py-2.5 text-[13px] font-bold", plan === p ? "border-purple-300/60 bg-purple-500/20 text-white" : "border-white/10 text-slate-400")}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label>DURATION</Label>
+              <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                {DURATIONS.map((d) => (
+                  <button key={d.id} onClick={() => setDuration(d.id)} className={cn("rounded-xl border px-2 py-2.5 text-[13px] font-bold", duration === d.id ? "border-purple-300/60 bg-purple-500/20 text-white" : "border-white/10 text-slate-400")}>
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+              {duration === "custom" && (
+                <input type="number" min={1} max={3650} value={customDays} onChange={(e) => setCustomDays(Number(e.target.value))} aria-label="Custom days" className="zev-input mt-2 !tracking-normal" />
+              )}
+            </div>
+            <div>
+              <Label>DEVICE LIMIT</Label>
+              <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+                {[1, 2, 3, 5].map((n) => (
+                  <button key={n} onClick={() => setLimit(n)} className={cn("rounded-xl border px-2 py-2.5 text-[13px] font-bold", limit === n ? "border-purple-300/60 bg-purple-500/20 text-white" : "border-white/10 text-slate-400")}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
-        <div className="mt-4 flex gap-3">
-          <button className="zev-btn-ghost flex-1" onClick={onClose}>{result ? "Done" : "Cancel"}</button>
-          {!result && (
-            <button disabled={busy} onClick={() => void generate()} className="flex-1 rounded-[14px] bg-violet-600 p-[11px] text-sm font-bold disabled:opacity-50">
-              {busy ? "Generating…" : "Generate license"}
+
+        {step === 2 && (
+          <div className="mt-4 space-y-3">
+            <div>
+              <Label>DISPLAY NAME</Label>
+              <input value={name} onChange={(e) => setName(e.target.value)} maxLength={64} placeholder="e.g. James — iPhone" className="zev-input mt-1.5 !tracking-normal" />
+            </div>
+            <div>
+              <Label>AVATAR</Label>
+              <div className="mt-1.5 flex items-center gap-3">
+                <KeyAvatar value={avatarValue() ?? "zev"} name={name || "Z"} size={48} />
+                <div className="grid flex-1 grid-cols-4 gap-1.5">
+                  {[["zev", "ZEV"], ["initials", "ABC"], ["upload", "File"], ["url", "URL"]].map(([id, label]) => (
+                    <button key={id} onClick={() => setAvatar(id)} className={cn("rounded-xl border px-1 py-2 text-[12px] font-bold", avatar === id ? "border-purple-300/60 bg-purple-500/20 text-white" : "border-white/10 text-slate-400")}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {avatar === "initials" && (
+                <input value={initials} onChange={(e) => setInitials(e.target.value)} maxLength={4} placeholder="JD" aria-label="Initials" className="zev-input mt-2 !tracking-normal" />
+              )}
+              {avatar === "url" && (
+                <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://…" aria-label="Avatar URL" className="zev-input mt-2 !tracking-normal" />
+              )}
+              {avatar === "upload" && (
+                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => void onFile(e.target.files?.[0])} aria-label="Upload avatar" className="mt-2 text-[13px] text-slate-300" />
+              )}
+            </div>
+            <div>
+              <Label>NOTES</Label>
+              <input value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} placeholder="Internal note (never shown to users)" className="zev-input mt-1.5 !tracking-normal" />
+            </div>
+            <Card className="!p-3 text-[12.5px] text-slate-300">
+              <p><b>{plan}</b> · {DURATIONS.find((d) => d.id === duration)?.label}{duration === "custom" ? ` (${customDays}d)` : ""} · {limit} device{limit > 1 ? "s" : ""}</p>
+              <p className="mt-0.5 text-slate-500">{name.trim() || "Unnamed key"}</p>
+            </Card>
+          </div>
+        )}
+
+        {step === 3 && !result && (
+          <div className="mt-4">
+            <p className="text-[13px] text-slate-400">Review looks good? The key is shown once after generation.</p>
+          </div>
+        )}
+
+        {error && <p role="alert" className="mt-2 text-[13px] text-red-400">{error}</p>}
+
+        {result && (
+          <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-emerald-200"><ShieldCheck size={13} /> KEY CREATED — COPY IT NOW</p>
+            <p className="mt-1.5 break-all font-mono text-sm font-bold text-emerald-100">{result.key}</p>
+            <p className="mt-1 text-xs text-emerald-100/70">{result.plan} · exp {result.expires_at ? fmtDate(result.expires_at) : "Never"} · limit {result.device_limit}</p>
+            <button className="zev-btn-ghost mt-2 w-full text-xs" onClick={() => { void navigator.clipboard.writeText(result.key); }}>
+              <span className="flex items-center justify-center gap-1.5"><Copy size={13} /> Copy key</span>
             </button>
+          </div>
+        )}
+
+        <div className="mt-4 flex gap-3">
+          {result ? (
+            <button className="zev-btn-ghost flex-1" onClick={onClose}>Done</button>
+          ) : (
+            <>
+              <button className="zev-btn-ghost flex-1" onClick={() => (step === 1 ? onClose() : setStep(step - 1))}>
+                {step === 1 ? "Cancel" : "Back"}
+              </button>
+              {step < 3 ? (
+                <button className="flex-1 rounded-[14px] bg-violet-600 p-[11px] text-sm font-bold" onClick={() => setStep(step + 1)}>Continue</button>
+              ) : (
+                <button disabled={busy} onClick={() => void generate()} className="flex-1 rounded-[14px] bg-violet-600 p-[11px] text-sm font-bold disabled:opacity-50">
+                  {busy ? "Generating…" : "Generate key"}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -365,34 +584,41 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   );
 }
 
-function DetailModal({ license, onClose, onChanged }: { license: License; onClose: () => void; onChanged: (l: License) => void }) {
+/* ------------------------------ Key editor ------------------------------ */
+
+function KeyEditor({ license, onClose, onSaved }: {
+  license: License;
+  onClose: () => void;
+  onSaved: (l: License | null) => void;
+}) {
+  const [name, setName] = useState(license.display_name ?? "");
+  const [avatar, setAvatar] = useState(license.avatar ?? "zev");
+  const [notes, setNotes] = useState(license.notes ?? "");
   const [plan, setPlan] = useState(license.plan);
   const [limit, setLimit] = useState(license.device_limit);
-  const [extraDays, setExtraDays] = useState(30);
+  const [expires, setExpires] = useState(license.expires_at ? license.expires_at.slice(0, 16) : "");
+  const [permanent, setPermanent] = useState(!license.expires_at);
   const [busy, setBusy] = useState(false);
-  const [detail, setDetail] = useState<{ bound_devices: number } | null>(null);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    adminReq<{ license: License; bound_devices: number }>(`/api/admin/licenses/${license.id}`)
-      .then((r) => setDetail({ bound_devices: r.bound_devices }))
-      .catch(() => {});
-  }, [license.id]);
-
-  async function patch(body: unknown) {
-    setBusy(true);
+  async function save() {
     try {
-      const res = await adminReq<{ license: License }>(`/api/admin/licenses/${license.id}/activate`, { method: "PATCH", body: JSON.stringify(body) });
-      if (res.license) onChanged(res.license);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function extend() {
-    setBusy(true);
-    try {
-      const res = await adminReq<{ license: License }>(`/api/admin/licenses/${license.id}/extend`, { method: "POST", body: JSON.stringify({ extra_days: extraDays }) });
-      if (res.license) onChanged(res.license);
+      setBusy(true);
+      setError("");
+      const res = await adminReq<{ license: License }>(`/api/admin/licenses/${license.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          display_name: name.trim() || null,
+          avatar: avatar || null,
+          notes: notes.trim() || null,
+          plan,
+          device_limit: limit,
+          expires_at: permanent ? null : new Date(expires).toISOString(),
+        }),
+      });
+      onSaved(res.license);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setBusy(false);
     }
@@ -400,42 +626,71 @@ function DetailModal({ license, onClose, onChanged }: { license: License; onClos
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center" onClick={onClose}>
-      <div className="zev-card max-h-[85dvh] w-full max-w-[440px] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
+      <div className="zev-card max-h-[88dvh] w-full max-w-[440px] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-base font-black"><KeyRound size={17} /> License</h3>
+          <h3 className="flex items-center gap-2 text-base font-black"><KeyRound size={17} /> Edit key</h3>
           <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-black", STATUS_COLORS[license.status])}>{license.status}</span>
         </div>
-        <p className="mt-2 break-all font-mono text-sm font-bold">{license.key}</p>
-        <div className="mt-3 space-y-1.5 text-[13px] text-slate-300">
-          <p>Plan: <b>{license.plan}</b></p>
-          <p>Expiry: <b>{fmtDate(license.expires_at)}</b></p>
-          <p>Devices: <b>{detail ? `${detail.bound_devices}/${license.device_limit}` : `…/${license.device_limit}`}</b></p>
-          <p>Created: <b>{fmtDate(license.created_at)}</b></p>
+        <div className="mt-3 flex items-center gap-3">
+          <KeyAvatar value={avatar || "zev"} name={name || "Z"} size={52} />
+          <p className="min-w-0 flex-1 break-all font-mono text-[12px] font-bold text-slate-300">{license.key}</p>
         </div>
 
-        <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
-          <div className="flex gap-2">
-            <input value={plan} onChange={(e) => setPlan(e.target.value)} className="zev-input !tracking-normal" placeholder="Plan" />
-            <button disabled={busy} className="zev-btn-ghost shrink-0" onClick={() => void patch({ plan })}>Save</button>
+        <div className="mt-4 space-y-3">
+          <div>
+            <Label>DISPLAY NAME</Label>
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={64} className="zev-input mt-1.5 !tracking-normal" />
           </div>
-          <div className="flex gap-2">
-            <input type="number" min={1} max={10} value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="zev-input !tracking-normal" />
-            <button disabled={busy} className="zev-btn-ghost shrink-0" onClick={() => void patch({ device_limit: limit })}>Limit</button>
+          <div>
+            <Label>AVATAR</Label>
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+              <button onClick={() => setAvatar("zev")} className={cn("rounded-xl border px-2 py-2 text-[12px] font-bold", avatar === "zev" ? "border-purple-300/60 bg-purple-500/20 text-white" : "border-white/10 text-slate-400")}>ZEV character</button>
+              <button onClick={() => setAvatar((name.trim().slice(0, 2) || "ZX").toUpperCase())} className={cn("rounded-xl border px-2 py-2 text-[12px] font-bold", avatar !== "zev" && !avatar.startsWith("http") && !avatar.startsWith("data:") ? "border-purple-300/60 bg-purple-500/20 text-white" : "border-white/10 text-slate-400")}>Initials</button>
+            </div>
+            <input value={avatar.startsWith("http") || avatar.startsWith("data:") ? avatar : ""} onChange={(e) => setAvatar(e.target.value)} placeholder="…or paste image URL" aria-label="Avatar URL" className="zev-input mt-1.5 !tracking-normal" />
           </div>
-          <div className="flex gap-2">
-            <input type="number" min={1} max={3650} value={extraDays} onChange={(e) => setExtraDays(Number(e.target.value))} className="zev-input !tracking-normal" />
-            <button disabled={busy} className="zev-btn-ghost shrink-0" onClick={() => void extend()}>Extend</button>
+          <div>
+            <Label>PLAN</Label>
+            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+              {["Free", "Premium", "VIP"].map((p) => (
+                <button key={p} onClick={() => setPlan(p)} className={cn("rounded-xl border px-2 py-2 text-[12px] font-bold", plan === p ? "border-purple-300/60 bg-purple-500/20 text-white" : "border-white/10 text-slate-400")}>{p}</button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>DEVICE LIMIT</Label>
+              <input type="number" min={1} max={10} value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="zev-input mt-1.5 !tracking-normal" />
+            </div>
+            <div>
+              <Label>EXPIRES</Label>
+              <input type="datetime-local" value={expires} disabled={permanent} onChange={(e) => setExpires(e.target.value)} className="zev-input mt-1.5 !tracking-normal disabled:opacity-40" />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-[13px] text-slate-300">
+            <input type="checkbox" checked={permanent} onChange={(e) => setPermanent(e.target.checked)} className="h-4 w-4 accent-purple-500" />
+            Permanent (no expiry)
+          </label>
+          <div>
+            <Label>NOTES</Label>
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} className="zev-input mt-1.5 !tracking-normal" />
           </div>
         </div>
 
-        <button className="zev-btn-ghost mt-4 w-full" onClick={onClose}>Close</button>
-        <p className="mt-2 flex items-center justify-center gap-1 text-[11px] text-slate-500"><BadgeCheck size={12} /> Changes are audited in logs</p>
+        {error && <p role="alert" className="mt-2 text-[13px] text-red-400">{error}</p>}
+
+        <div className="mt-4 flex gap-3">
+          <button className="zev-btn-ghost flex-1" onClick={onClose}>Cancel</button>
+          <button disabled={busy} onClick={() => void save()} className="flex-1 rounded-[14px] bg-violet-600 p-[11px] text-sm font-bold disabled:opacity-50">
+            {busy ? "Saving…" : "Save changes"}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ------------------------------ Devices ------------------------------ */
+/* ------------------------------ Devices / Logs ------------------------------ */
 
 function Devices() {
   const [items, setItems] = useState<DeviceRow[]>([]);
@@ -450,7 +705,7 @@ function Devices() {
     <div className="space-y-2">
       {items.map((d) => (
         <Card key={d.id}>
-          <p className="flex items-center gap-2 text-sm font-bold"><Smartphone size={15} className="text-cyan-300" />{d.platform}</p>
+          <p className="flex items-center gap-2 text-sm font-bold"><Smartphone size={15} className="text-purple-300" />{d.platform}</p>
           <p className="mt-1 break-all font-mono text-[11px] text-slate-400">{d.device_identifier}</p>
           <p className="mt-1 text-[11px] text-slate-500">last seen {new Date(d.last_seen_at).toLocaleString("en-GB", { hour12: false })}</p>
         </Card>
@@ -459,8 +714,6 @@ function Devices() {
     </div>
   );
 }
-
-/* ------------------------------ Logs ------------------------------ */
 
 function Logs() {
   const [items, setItems] = useState<LogRow[]>([]);
@@ -477,9 +730,9 @@ function Logs() {
       <div className="mt-2 space-y-2.5">
         {items.map((l) => (
           <div key={l.id} className="border-b border-white/5 pb-2 text-[12px] last:border-0">
-            <div className="flex items-center justify-between">
-              <span className="font-mono font-bold text-violet-200">{l.type}</span>
-              <span className="font-mono text-[10px] text-slate-500">{new Date(l.created_at).toLocaleString("en-GB", { hour12: false })}</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate font-mono font-bold text-violet-200">{l.type}</span>
+              <span className="shrink-0 font-mono text-[10px] text-slate-500">{new Date(l.created_at).toLocaleString("en-GB", { hour12: false })}</span>
             </div>
             {l.metadata && <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500">{l.metadata}</p>}
           </div>

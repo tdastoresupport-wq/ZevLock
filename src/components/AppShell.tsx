@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { BottomNav, type Tab } from "@/components/BottomNav";
+import { BrandMark } from "@/components/BrandMark";
 import { LicenseScreen } from "@/components/LicenseScreen";
 import { WelcomeModal } from "@/components/modals";
 import { HomeTab } from "@/components/HomeTab";
+import { AccountTab } from "@/components/AccountTab";
 import { FunctionTab, persistMany, persistToggle } from "@/components/FunctionTab";
 import { RealtimeTab } from "@/components/RealtimeTab";
 import { api } from "@/lib/api";
@@ -102,6 +104,14 @@ export default function AppShell() {
     }
   }
 
+  async function handleResetDevice() {
+    try { await api.deviceReset(); } catch { /* ignore */ }
+    api.clearToken();
+    setStatus(null);
+    setWelcome(false);
+    setTab("home");
+  }
+
   async function handleLogout() {
     try { await api.logout(); } catch { /* ignore */ }
     api.clearToken();
@@ -112,11 +122,12 @@ export default function AppShell() {
 
   if (booting) {
     return (
-      <div className="relative flex min-h-dvh items-center justify-center overflow-hidden">
+      <div className="relative flex min-h-dvh flex-col items-center justify-center gap-4 overflow-hidden">
         <div className="zev-hero-glow" />
         <div className="zev-splash-logo flex flex-col items-center">
-          <p className="text-3xl font-black tracking-[0.32em]">ZEV</p>
-          <p className="mt-2 text-[11px] font-bold tracking-[0.4em] text-purple-300">LOCK</p>
+          <BrandMark size={84} />
+          <p className="mt-4 text-2xl font-black tracking-[0.32em]">ZEV</p>
+          <p className="mt-1.5 text-[11px] font-bold tracking-[0.4em] text-purple-300">LOCK</p>
         </div>
       </div>
     );
@@ -162,6 +173,16 @@ export default function AppShell() {
             )}
             {tab === "realtime" && (
               <RealtimeTab status={status} loading={false} error={error} activity={activity} onRetry={() => void refresh()} />
+            )}
+            {tab === "account" && (
+              <AccountTab
+                status={status}
+                loading={false}
+                error={error}
+                onRetry={() => void refresh()}
+                onLogout={() => void handleLogout()}
+                onResetDevice={() => handleResetDevice()}
+              />
             )}
           </motion.main>
         </AnimatePresence>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { AdminRole } from "./types";
 
 /**
  * Session tokens: HMAC-signed `sid.licenseId.exp` triplets (base64url).
@@ -67,24 +68,93 @@ export function getSessionToken(req: NextRequest): string | null {
   return null;
 }
 
+/** Admin credential: HttpOnly cookie `zev_admin` or `x-admin-token` header.
+ *  Query-param tokens are intentionally NOT accepted (they leak into logs). */
+export function getAdminToken(req: NextRequest): string | null {
+  const cookie = req.cookies.get("zev_admin")?.value;
+  if (cookie) return cookie;
+  const header = req.headers.get("x-admin-token");
+  if (header) return header;
+  const auth = req.headers.get("authorization");
+  if (auth?.startsWith("Bearer ")) return auth.slice(7);
+  return null;
+}
+
+/** Constant-time string comparison (prevents timing side-channels on secrets). */
+export function safeEqual(a: string, b: string): boolean {
+  const ab = encoder.encode(a);
+  const bb = encoder.encode(b);
+  if (ab.length !== bb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i];
+  return diff === 0;
+}
+
 export async function requireSession(req: NextRequest): Promise<SessionClaims | null> {
   const token = getSessionToken(req);
   if (!token) return null;
   return verifySession(token);
 }
 
-export function isAdmin(req: NextRequest): boolean {
-  const token = req.headers.get("x-admin-token") ?? req.nextUrl.searchParams.get("admin_token");
-  const expected = process.env.ADMIN_API_TOKEN ?? "dev-only-admin-token-change-me";
-  return !!token && token === expected;
-}
-
 export function unauthorized(code = "unauthorized") {
   return NextResponse.json({ error: "Unauthorized", code }, { status: 401 });
 }
 
-export function adminOnly(req: NextRequest): NextResponse | null {
-  if (!isAdmin(req)) return unauthorized("admin_required");
+/* ---------------- admin authentication (password + roles) ---------------- */
+
+export interface AdminClaims {
+  id: string;
+  email: string;
+  name: string;
+  role: AdminRole;
+}
+
+const ADMIN_TTL_SECONDS = 12 * 3600;
+
+const ROLE_RANK: Record<AdminRole, number> = { SUPPORT: 1, ADMIN: 2, SUPER_ADMIN: 3 };
+
+function parseRole(r: string): AdminRole | null {
+  return r === "SUPER_ADMIN" || r === "ADMIN" || r === "SUPPORT" ? r : null;
+}
+
+/** Issue a signed admin session token (12h). Stateless, HttpOnly-cookie safe. */
+export async function signAdminToken(a: AdminClaims): Promise<string> {
+  return signSession(`admin:${a.id}`, `role:${a.role}|${a.email}|${a.name}`, ADMIN_TTL_SECONDS);
+}
+
+export async function verifyAdminToken(token: string): Promise<AdminClaims | null> {
+  const c = await verifySession(token);
+  if (!c || !c.sid.startsWith("admin:")) return null;
+  const rest = c.licenseId.startsWith("role:") ? c.licenseId.slice(5) : "";
+  const [roleRaw, email = "", name = ""] = rest.split("|");
+  const role = parseRole(roleRaw);
+  if (!role) return null;
+  return { id: c.sid.slice(6), email, name, role };
+}
+
+/** Resolve the calling admin from cookie/header, or legacy static token. */
+export async function getAdmin(req: NextRequest): Promise<AdminClaims | null> {
+  const cookie = req.cookies.get("zev_admin")?.value ?? null;
+  const header = req.headers.get("x-admin-token") ?? null;
+  for (const t of [cookie, header]) {
+    if (!t) continue;
+    const v = await verifyAdminToken(t);
+    if (v) return v;
+  }
+  // Legacy static token (transition path for scripts) → pseudo super-admin.
+  const expected = process.env.ADMIN_API_TOKEN ?? "";
+  for (const t of [cookie, header]) {
+    if (t && expected && safeEqual(t, expected)) {
+      return { id: "legacy", email: "", name: "Legacy token", role: "SUPER_ADMIN" };
+    }
+  }
+  return null;
+}
+
+/** Authorization gate. Destructive endpoints should require "ADMIN". */
+export async function adminOnly(req: NextRequest, minRole: AdminRole = "SUPPORT"): Promise<NextResponse | null> {
+  const a = await getAdmin(req);
+  if (!a || ROLE_RANK[a.role] < ROLE_RANK[minRole]) return unauthorized("admin_required");
   return null;
 }
 

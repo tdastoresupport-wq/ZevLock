@@ -6,7 +6,7 @@ import { addDaysIso } from "@/lib/keys";
 
 /** POST /api/admin/licenses/:id/activate — ACTIVATE an UNUSED/SUSPENDED/EXPIRED key. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = adminOnly(req);
+  const denied = await adminOnly(req);
   if (denied) return denied;
   const lic = await findLicenseById((await params).id);
   if (!lic) return NextResponse.json({ error: "License not found", code: "not_found" }, { status: 404 });
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
 /** PATCH handlers for plan / device-limit live under the same file? No — separate routes. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = adminOnly(req);
+  const denied = await adminOnly(req);
   if (denied) return denied;
   const lic = await findLicenseById((await params).id);
   if (!lic) return NextResponse.json({ error: "License not found", code: "not_found" }, { status: 404 });

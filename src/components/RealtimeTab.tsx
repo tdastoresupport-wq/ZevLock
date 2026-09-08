@@ -6,6 +6,7 @@ import { Power, RefreshCw } from "lucide-react";
 import { Card, ErrorState, SectionHeader, Skeleton, StatusDot } from "./ui";
 import { fmtCountdown, fmtDate, timeAgo } from "@/lib/format";
 import { playClick } from "@/lib/sound";
+import { subscribeOnline } from "@/lib/telemetry";
 import { FUNCTIONS, type ActivityEvent, type FunctionStates, type LicenseStatusResponse } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -21,9 +22,11 @@ export function RealtimeTab({
 }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [syncing, setSyncing] = useState(false);
+  const [online, setOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
   useEffect(() => {
     const t = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(t);
+    const unsub = subscribeOnline(setOnline);
+    return () => { clearInterval(t); unsub(); };
   }, []);
 
   if (loading) {
@@ -73,7 +76,8 @@ export function RealtimeTab({
       <div className="relative overflow-hidden rounded-[22px] border border-purple-300/20 bg-gradient-to-b from-violet-600/15 to-transparent px-5 py-5 text-center">
         <div className="zev-hero-glow" />
         <p className="flex items-center justify-center gap-2 text-[11px] font-black tracking-[0.24em] text-slate-300">
-          <span className="zev-live-dot" aria-hidden="true" /> LIVE SESSION
+          <span className={online ? "zev-live-dot" : "dot bg-amber-400"} aria-hidden="true" />
+          {online ? "LIVE SESSION" : "OFFLINE — SHOWING LAST SYNC"}
         </p>
         <p className="tnum mt-2 text-[42px] font-black leading-none tracking-tight" aria-hidden="true">
           {fmtCountdown(remaining)}
@@ -103,7 +107,7 @@ export function RealtimeTab({
         <SectionHeader kicker="EVENT PULSE · THIS DEVICE" />
         <Card className="!p-3.5">
           {bars.length === 0 ? (
-            <p className="py-2 text-center text-[12px] text-slate-500">No events yet — toggle a system to light it up.</p>
+            <p className="py-2 text-center text-[12px] text-slate-500">Nothing here yet — activity appears as you use the app.</p>
           ) : (
             <div className="flex h-16 items-end gap-1" aria-hidden="true">
               {bars.map((b, i) => (
@@ -174,7 +178,7 @@ export function RealtimeTab({
       </div>
 
       <p className="pb-2 text-center text-[11px] text-slate-600">
-        App-level telemetry only · no game or hardware data
+        App telemetry only
       </p>
     </div>
   );
