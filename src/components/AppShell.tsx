@@ -10,7 +10,7 @@ import { HomeTab } from "@/components/HomeTab";
 import { AccountTab } from "@/components/AccountTab";
 import { FunctionTab, persistMany, persistToggle } from "@/components/FunctionTab";
 import { RealtimeTab } from "@/components/RealtimeTab";
-import { api } from "@/lib/api";
+import { api, fetchWithTimeout, storageGet } from "@/lib/api";
 import { getDeviceId } from "@/lib/device";
 import type { ActivityEvent, FunctionKey, FunctionStates, LicenseStatusResponse } from "@/lib/types";
 
@@ -54,9 +54,10 @@ export default function AppShell() {
     setError(null);
     try {
       const deviceId = getDeviceId();
-      const t = localStorage.getItem("zev_token");
+      const t = storageGet("zev_token");
         const headers: Record<string, string> = t ? { Authorization: `Bearer ${t}` } : {};
-        const res = await fetch(`/api/license/status?device_identifier=${encodeURIComponent(deviceId)}`, { headers });
+        // Bounded: a hanging API can never hold startup hostage.
+        const res = await fetchWithTimeout(`/api/license/status?device_identifier=${encodeURIComponent(deviceId)}`, { headers });
       if (res.status === 401 || res.status === 403) {
         api.clearToken();
         setStatus(null);
@@ -75,14 +76,24 @@ export default function AppShell() {
     setActivity(loadActivity());
     const started = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
-    (async () => {
-      let ok = false;
-      if (localStorage.getItem("zev_token")) ok = await refresh();
-      if (ok && mountedRef.current) setWelcome(true); // welcome popup on every login / session boot
-      // Startup animation beat (~900ms) before revealing the dashboard.
+    // Splash dismissal is driven by a bounded timer, never by the network:
+    // the animation is presentation-only; refresh() carries its own abort
+    // timeout, so BOOTING always reaches READY (dashboard or license screen).
+    const finish = () => {
       const wait = Math.max(0, 900 - (Date.now() - started));
       timer = setTimeout(() => { if (mountedRef.current) setBooting(false); }, wait);
-    })();
+    };
+    const stored = storageGet("zev_token");
+    if (!stored) {
+      finish();
+    } else {
+      (async () => {
+        const ok = await refresh();
+        if (!mountedRef.current) return;
+        if (ok) setWelcome(true); // welcome popup on every login / session boot
+        finish();
+      })();
+    }
     return () => { if (timer) clearTimeout(timer); };
   }, [refresh]);
 
@@ -99,9 +110,9 @@ export default function AppShell() {
   /** Authoritative function-state refetch (reconciles stale optimistic views). */
   const refetchFunctions = useCallback(async () => {
     try {
-      const t = localStorage.getItem("zev_token");
+      const t = storageGet("zev_token");
       const headers: Record<string, string> = t ? { Authorization: `Bearer ${t}` } : {};
-      const res = await fetch(`/api/functions`, { headers });
+      const res = await fetchWithTimeout(`/api/functions`, { headers });
       if (!res.ok) return;
       const data = (await res.json()) as { functions: FunctionStates };
       if (mountedRef.current && data.functions) {
@@ -182,7 +193,15 @@ export default function AppShell() {
 
   if (!status) {
     // Session invalid/expired/absent → license-first flow.
-    return <LicenseScreen onActivated={(s) => { setStatus(s); setError(null); setWelcome(true); }} />;
+    // A failed boot refresh surfaces here as a retryable notice (DEGRADED),
+    // never as a permanent splash.
+    return (
+      <LicenseScreen
+        onActivated={(s) => { setStatus(s); setError(null); setWelcome(true); }}
+        notice={error}
+        onRetry={() => void refresh()}
+      />
+    );
   }
 
   return (

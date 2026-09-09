@@ -2,9 +2,41 @@ import type { ApiError, FunctionStates, LicenseStatusResponse } from "./types";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
+/**
+ * Bounded fetch: every startup/network request aborts after a finite timeout
+ * so no single request can hold the splash screen indefinitely.
+ */
+export async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  timeoutMs = 12000
+): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: ctrl.signal });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error(`Request timed out after ${timeoutMs}ms`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** localStorage read that can never throw (private-mode SecurityError, etc.). */
+export function storageGet(key: string): string | null {
+  try {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 function token(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem("zev_token");
+  return storageGet("zev_token");
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -55,7 +87,7 @@ export const api = {
 };
 
 export function adminHeaders(): Record<string, string> {
-  const t = typeof window !== "undefined" ? window.localStorage.getItem("zev_admin_token") : null;
+  const t = storageGet("zev_admin_token");
   return t ? { "x-admin-token": t } : {};
 }
 

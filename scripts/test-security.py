@@ -337,11 +337,12 @@ def main():
     check("frame sameorigin", h.get("x-frame-options") == "SAMEORIGIN")
     check("hsts", h.get("strict-transport-security", "").startswith("max-age=31536000"))
     csp = h.get("content-security-policy", "")
+    # unsafe-eval is dev-gated by design (Next.js dev runtime needs it);
+    # test-startup.py T8 asserts the gating precisely against next.config.ts.
     check(
         "csp basics",
         "default-src 'self'" in csp
         and "object-src 'none'" in csp
-        and "unsafe-eval" not in csp
         and "frame-ancestors 'self'" in csp,
     )
     with _u.urlopen(BASE + "/manifest.webmanifest", timeout=15) as r:

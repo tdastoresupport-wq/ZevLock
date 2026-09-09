@@ -10,7 +10,14 @@ import type { LicenseStatusResponse } from "@/lib/types";
 
 type Phase = "input" | "checking" | "expired" | "error" | "success";
 
-export function LicenseScreen({ onActivated }: { onActivated: (s: LicenseStatusResponse) => void }) {
+export function LicenseScreen({
+  onActivated, notice, onRetry,
+}: {
+  onActivated: (s: LicenseStatusResponse) => void;
+  /** Startup failure surfaced here so boot can never strand the user silently. */
+  notice?: string | null;
+  onRetry?: () => void;
+}) {
   const [key, setKey] = useState("");
   const [phase, setPhase] = useState<Phase>("input");
   const [message, setMessage] = useState("");
@@ -68,6 +75,16 @@ export function LicenseScreen({ onActivated }: { onActivated: (s: LicenseStatusR
       {/* Key entry */}
       <div className="zev-card mt-8 p-5">
         <label className="text-[11px] font-semibold tracking-[0.18em] text-slate-400">LICENSE KEY</label>
+        {notice && phase === "input" && (
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3" role="alert">
+            <p className="text-[12.5px] text-amber-100/90">{notice}</p>
+            {onRetry && (
+              <button onClick={onRetry} className="zev-btn-ghost shrink-0 !px-3 !py-1.5 text-xs">
+                Retry
+              </button>
+            )}
+          </div>
+        )}
         <div className="relative mt-2">
           <KeyRound size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 shrink-0 text-purple-300/70" />
           <input

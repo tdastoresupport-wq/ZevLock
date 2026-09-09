@@ -31,7 +31,7 @@ export function KeyAvatar({
       <span className={box} style={{ width: size, height: size }}>
         {!broken ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={CHARACTER_SRC} alt="" className="h-full w-full object-cover" onError={() => setBroken(true)} />
+          <img src={CHARACTER_SRC} alt="" className="h-full w-full object-cover" decoding="async" onError={() => setBroken(true)} />
         ) : (
           <span className="font-black text-white" style={{ fontSize: size * 0.42 }}>{initial}</span>
         )}
@@ -54,7 +54,7 @@ export function KeyAvatar({
       <span className={box} style={{ width: size, height: size }}>
         {!broken ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={value} alt="" className="h-full w-full object-cover" onError={() => setBroken(true)} />
+          <img src={value} alt="" className="h-full w-full object-cover" decoding="async" onError={() => setBroken(true)} />
         ) : (
           <span className="font-black text-white" style={{ fontSize: size * 0.42 }}>{initial}</span>
         )}
