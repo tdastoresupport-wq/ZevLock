@@ -408,7 +408,9 @@ def live_section():
     s, _ = api(
         "POST", "/api/mobileconfig/generate", {"preset": "legacy-60hz"}, token=tok2
     )
-    check("revoked license -> 403", s == 403, f"got {s}")
+    # Revoke kills the session row too → 401 session_revoked. Key-level 403
+    # for revoked keys is covered by the activate path in test-security.py.
+    check("revoked session -> 401", s == 401, f"got {s}")
     _admin("DELETE", f"/api/admin/licenses/{nk['license']['id']}")
 
     s, _ = _admin(

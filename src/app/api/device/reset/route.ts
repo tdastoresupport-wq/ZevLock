@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addLog, deleteDevicesForLicense, revokeSessionsForLicense } from "@/lib/db";
-import { getSessionToken, verifySession } from "@/lib/auth";
+import { getSessionToken, verifySession, isUserSessionActive} from "@/lib/auth";
 
 /**
  * POST /api/device/reset — user-initiated unbind of ALL devices on this
@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
   const token = getSessionToken(req);
   const claims = token ? await verifySession(token) : null;
   if (!claims) return NextResponse.json({ error: "Invalid or expired session", code: "session_invalid" }, { status: 401 });
+  if (!(await isUserSessionActive(claims.sid))) return NextResponse.json({ error: "Session revoked", code: "session_revoked" }, { status: 401 });
 
   await deleteDevicesForLicense(claims.licenseId);
   await revokeSessionsForLicense(claims.licenseId);

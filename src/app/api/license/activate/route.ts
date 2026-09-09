@@ -4,7 +4,7 @@ import {
   getFunctions, setFunctions, touchLicense, updateLicense, upsertDevice,
 } from "@/lib/db";
 import { effectiveLicense } from "@/lib/license";
-import { rateLimit, signSession, tooMany } from "@/lib/auth";
+import { rateLimit, signSession, tooMany, getClientIp} from "@/lib/auth";
 import { activateLicenseSchema } from "@/lib/validation";
 import { addDaysIso, newId } from "@/lib/keys";
 
@@ -12,7 +12,7 @@ const SESSION_TTL_SECONDS = 30 * 24 * 3600; // 30-day session
 
 /** POST /api/license/activate — verify key, bind device, create session. */
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "anon";
+  const ip = getClientIp(req);
   if (!rateLimit(`activate:${ip}`, 10, 60_000)) return tooMany();
 
   const body = await req.json().catch(() => ({}));
@@ -26,9 +26,17 @@ export async function POST(req: NextRequest) {
   if (!lic) return NextResponse.json({ error: "License key not found", code: "not_found" }, { status: 404 });
   const eff = await effectiveLicense(lic);
 
-  if (eff.status === "SUSPENDED") return NextResponse.json({ error: "License is suspended", code: "suspended" }, { status: 403 });
-  if (eff.status === "REVOKED") return NextResponse.json({ error: "License has been revoked", code: "revoked" }, { status: 403 });
+  // Misuse attempts are audited by license id + code only — never the key value.
+  if (eff.status === "SUSPENDED") {
+    await addLog("license.rejected", eff.id, null, { code: "suspended" });
+    return NextResponse.json({ error: "License is suspended", code: "suspended" }, { status: 403 });
+  }
+  if (eff.status === "REVOKED") {
+    await addLog("license.rejected", eff.id, null, { code: "revoked" });
+    return NextResponse.json({ error: "License has been revoked", code: "revoked" }, { status: 403 });
+  }
   if (eff.status === "EXPIRED") {
+    await addLog("license.rejected", eff.id, null, { code: "expired" });
     return NextResponse.json({ error: "License has expired", code: "expired", expires_at: eff.expires_at }, { status: 403 });
   }
 
@@ -37,6 +45,7 @@ export async function POST(req: NextRequest) {
   if (!device) {
     const bound = await countDevices(eff.id);
     if (bound >= eff.device_limit) {
+      await addLog("license.rejected", eff.id, null, { code: "device_limit_reached" });
       return NextResponse.json({ error: "Device limit reached for this license", code: "device_limit_reached" }, { status: 403 });
     }
     const ts = new Date().toISOString();
@@ -50,10 +59,13 @@ export async function POST(req: NextRequest) {
   }
 
   // First activation transitions UNUSED -> ACTIVE.
+  // Central permanent rule: a permanent key NEVER receives an expiry here.
   let expiresAt = eff.expires_at;
   if (eff.status === "UNUSED") {
-    const days = Number(process.env.DEFAULT_DURATION_DAYS ?? 30);
-    expiresAt = addDaysIso(new Date(), Number.isFinite(days) ? days : 30);
+    if (eff.is_permanent !== 1) {
+      const days = Number(process.env.DEFAULT_DURATION_DAYS ?? 30);
+      expiresAt = addDaysIso(new Date(), Number.isFinite(days) ? days : 30);
+    }
     await updateLicense(eff.id, { status: "ACTIVE", activated_at: new Date().toISOString(), expires_at: expiresAt });
     await addLog("license.activated", eff.id, device.id, { plan: eff.plan });
   }

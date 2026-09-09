@@ -11,6 +11,8 @@ export interface License {
   created_at: string;
   activated_at: string | null;
   expires_at: string | null;
+  /** 1 = never expires. Distinct from "expiry not yet assigned". */
+  is_permanent: number;
   display_name?: string | null;
   avatar?: string | null;
   notes?: string | null;

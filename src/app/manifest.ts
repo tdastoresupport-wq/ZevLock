@@ -15,8 +15,8 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
       { src: "/apple-touch-icon.svg", sizes: "180x180", type: "image/svg+xml", purpose: "any" },
-      // Character artwork avatar — drop your art at public/zev-character.jpg to enable.
-      { src: "/zev-character.jpg", sizes: "512x512", type: "image/jpeg", purpose: "any" },
+      // Character artwork avatar at public/zev-character.png.
+      { src: "/zev-character.png", sizes: "512x512", type: "image/png", purpose: "any" },
     ],
   };
 }

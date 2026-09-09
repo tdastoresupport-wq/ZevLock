@@ -81,7 +81,7 @@ Local dev without a D1 binding uses an **in-memory demo store** seeded like
 ## Character artwork
 
 The Home hero, license screen avatar, welcome popup, and PWA avatar all use
-`public/zev-character.jpg`. Drop the Zev artwork file there (square-ish, ≥512px —
+`public/zev-character.png`. Drop the Zev artwork file there (square-ish, ≥512px —
 purple art works best with the theme). Until then, a purple gradient + glow
 fallback is shown automatically and every icon reference keeps working.
 
@@ -126,9 +126,25 @@ public/              icon.svg, apple-touch-icon.svg
 - License decisions (expiry, status, device limits) are computed server-side from timestamps — the frontend is never trusted.
 - Secrets compared in constant time; admin tokens never accepted via URL query params.
 - No secrets in the client bundle; no browser-to-D1 access (all through API routes).
-- Rate limits are in-memory per isolate (correct for single-isolate dev and small
-  Workers deployments). For multi-isolate production strictness, add Cloudflare
-  Rate Limiting rules in front of `/api/*` — especially `/api/admin/login`.
+- Sessions are revalidated against persistent state on every authenticated
+  request: logged-out, unbound, admin-revoked, or expired sessions return 401
+  even when the token signature is valid. User logout, device unbind, license
+  revoke/suspend, and admin logout all invalidate server-side rows.
+- Permanent licenses carry an explicit `is_permanent` flag and never receive
+  an expiry from activation/extend paths.
+- Browser transport is dual on purpose (HttpOnly `SameSite=lax` cookie plus
+  Bearer header with the same token value for installed-PWA edge cases) —
+  one authority, server-side revocation enforced for both. Logout clears both.
+  A localStorage copy exists only as a transport fallback; it carries no
+  extra authority and is rejected server-side once revoked.
+- Rate limits are in-memory per isolate: login is throttled per IP (20/min)
+  AND per email (5/min); profile generation per license (10/h). Client IP
+  comes from `cf-connecting-ip` only when `TRUST_EDGE=cloudflare`, otherwise
+  a documented dev fallback. For multi-isolate production strictness, add
+  Cloudflare Rate Limiting rules (NOT yet applied — requires dashboard):
+  `POST /api/admin/login` (5/min/IP + tighter per-email), `/api/license/*`
+  (20/min/IP), `/api/mobileconfig/*` (10/min/IP), `/api/admin/*` mutations
+  (30/min/IP + authenticated), with Managed Challenge on repeat offenders.
 - License keys are stored reversibly (needed for admin lookup/display and exact-match
   activation). Tradeoff documented: hashing keys at rest (SHA-256 + lookup by hash)
   would remove plaintext secrets from D1 but breaks admin substring search and

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findDevice, getFunctions, touchLicense } from "@/lib/db";
 import { effectiveLicenseById } from "@/lib/license";
-import { getSessionToken, verifySession } from "@/lib/auth";
+import { getSessionToken, verifySession, isUserSessionActive} from "@/lib/auth";
 import type { LicenseStatusResponse } from "@/lib/types";
 
 /** GET /api/license/status — current license + device + function snapshot. */
@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
   const token = getSessionToken(req);
   const claims = token ? await verifySession(token) : null;
   if (!claims) return NextResponse.json({ error: "Invalid or expired session", code: "session_invalid" }, { status: 401 });
+  if (!(await isUserSessionActive(claims.sid))) return NextResponse.json({ error: "Session revoked", code: "session_revoked" }, { status: 401 });
 
   // Device identifier is echoed back by the client for display binding.
   const deviceIdentifier = req.nextUrl.searchParams.get("device_identifier");

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addLog } from "@/lib/db";
 import { isPresetEnabled } from "@/lib/db";
-import { getSessionToken, rateLimit, tooMany, verifySession } from "@/lib/auth";
+import { getSessionToken, rateLimit, tooMany, verifySession, isUserSessionActive} from "@/lib/auth";
 import { effectiveLicenseById } from "@/lib/license";
 import { PROFILE_CONTENT_TYPE } from "@/lib/mobileconfig";
 import { CANONICAL_PROFILES } from "@/mobileconfig/profiles/bytes";
@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   const token = getSessionToken(req);
   const claims = token ? await verifySession(token) : null;
   if (!claims) return NextResponse.json({ error: "Invalid or expired session", code: "session_invalid" }, { status: 401 });
+  if (!(await isUserSessionActive(claims.sid))) return NextResponse.json({ error: "Session revoked", code: "session_revoked" }, { status: 401 });
   if (!rateLimit(`profile-dl:${claims.licenseId}`, 30, 3_600_000)) return tooMany();
 
   const id = req.nextUrl.searchParams.get("profile") ?? "";

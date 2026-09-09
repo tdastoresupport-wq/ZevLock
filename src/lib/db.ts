@@ -46,6 +46,7 @@ type MemDb = {
   logs: { id: number; type: string; license_id: string | null; metadata: string | null; created_at: string }[];
   users: Map<string, AdminUser & { password_hash: string }>;
   presets: Map<string, boolean>;
+  adminSessions: Map<string, { id: string; admin_id: string; expires_at: string; revoked_at: string | null }>;
 };
 
 const g = globalThis as unknown as { __zevMem?: MemDb };
@@ -54,9 +55,9 @@ function mem(): MemDb {
   if (!g.__zevMem) {
     g.__zevMem = {
       licenses: new Map([
-        ["lic_demo_vip1", { id: "lic_demo_vip1", key: "ZEV-DEMO-2026-VIP1", plan: "Premium", status: "ACTIVE", device_limit: 1, created_at: "2026-01-10T08:00:00.000Z", activated_at: "2026-01-10T08:05:00.000Z", expires_at: "2031-03-16T00:00:00.000Z" }],
-        ["lic_demo_expired", { id: "lic_demo_expired", key: "ZEV-EXP1-RED0-0001", plan: "Premium", status: "EXPIRED", device_limit: 1, created_at: "2025-01-10T08:00:00.000Z", activated_at: "2025-01-10T08:05:00.000Z", expires_at: "2025-02-10T00:00:00.000Z" }],
-        ["lic_demo_unused", { id: "lic_demo_unused", key: "ZEV-NEW-USER-000001", plan: "Premium", status: "UNUSED", device_limit: 1, created_at: "2026-09-01T08:00:00.000Z", activated_at: null, expires_at: null }],
+        ["lic_demo_vip1", { id: "lic_demo_vip1", key: "ZEV-DEMO-2026-VIP1", plan: "Premium", status: "ACTIVE", device_limit: 1, created_at: "2026-01-10T08:00:00.000Z", activated_at: "2026-01-10T08:05:00.000Z", expires_at: "2031-03-16T00:00:00.000Z", is_permanent: 0 }],
+        ["lic_demo_expired", { id: "lic_demo_expired", key: "ZEV-EXP1-RED0-0001", plan: "Premium", status: "EXPIRED", device_limit: 1, created_at: "2025-01-10T08:00:00.000Z", activated_at: "2025-01-10T08:05:00.000Z", expires_at: "2025-02-10T00:00:00.000Z", is_permanent: 0 }],
+        ["lic_demo_unused", { id: "lic_demo_unused", key: "ZEV-NEW-USER-000001", plan: "Premium", status: "UNUSED", device_limit: 1, created_at: "2026-09-01T08:00:00.000Z", activated_at: null, expires_at: null, is_permanent: 0 }],
       ]),
       devices: new Map(),
       sessions: new Map(),
@@ -70,6 +71,7 @@ function mem(): MemDb {
         { id: 4, type: "function.disabled", license_id: "lic_demo_vip1", metadata: '{"function":"aim_hold"}', created_at: "2026-09-06T22:33:02.000Z" },
       ],
       users: new Map(),
+      adminSessions: new Map(),
       presets: new Map([
         ["legacy-60hz", true],
         ["standard-oled-60hz", true],
@@ -94,6 +96,7 @@ function rowToLicense(r: Record<string, unknown>): License {
     created_at: String(r.created_at),
     activated_at: (r.activated_at as string | null) ?? null,
     expires_at: (r.expires_at as string | null) ?? null,
+    is_permanent: Number(r.is_permanent ?? 0),
     display_name: (r.display_name as string | null) ?? null,
     avatar: (r.avatar as string | null) ?? null,
     notes: (r.notes as string | null) ?? null,
@@ -187,19 +190,19 @@ export async function listLicenses(opts: { search?: string; status?: string; pla
 
 type LicensePatch = Partial<Pick<License,
   "status" | "plan" | "device_limit" | "activated_at" | "expires_at" |
-  "display_name" | "avatar" | "notes" | "last_used_at">>;
+  "display_name" | "avatar" | "notes" | "last_used_at" | "is_permanent">>;
 
 const LICENSE_PATCH_KEYS = new Set([
   "status", "plan", "device_limit", "activated_at", "expires_at",
-  "display_name", "avatar", "notes", "last_used_at",
+  "display_name", "avatar", "notes", "last_used_at", "is_permanent",
 ]);
 
 export async function insertLicense(l: License): Promise<void> {
   const d1 = getD1();
   if (!d1) { mem().licenses.set(l.id, l); return; }
   await d1.prepare(
-    "INSERT INTO licenses (id, key, plan, status, device_limit, created_at, activated_at, expires_at, display_name, avatar, notes, last_used_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(l.id, l.key, l.plan, l.status, l.device_limit, l.created_at, l.activated_at, l.expires_at, l.display_name ?? null, l.avatar ?? null, l.notes ?? null, l.last_used_at ?? null).run();
+    "INSERT INTO licenses (id, key, plan, status, device_limit, created_at, activated_at, expires_at, display_name, avatar, notes, last_used_at, is_permanent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(l.id, l.key, l.plan, l.status, l.device_limit, l.created_at, l.activated_at, l.expires_at, l.display_name ?? null, l.avatar ?? null, l.notes ?? null, l.last_used_at ?? null, l.is_permanent ?? 0).run();
 }
 
 export async function updateLicense(id: string, patch: LicensePatch): Promise<void> {
@@ -332,6 +335,66 @@ export async function revokeSession(id: string): Promise<void> {
   const d1 = getD1();
   if (!d1) { const s = mem().sessions.get(id); if (s) s.revoked_at = now(); return; }
   await d1.prepare("UPDATE sessions SET revoked_at = ? WHERE id = ?").bind(now(), id).run();
+}
+
+export interface SessionRecord {
+  id: string;
+  revoked_at: string | null;
+  expires_at: string;
+}
+
+export async function findSessionById(id: string): Promise<SessionRecord | null> {
+  const d1 = getD1();
+  if (!d1) {
+    const s = mem().sessions.get(id);
+    return s ? { id: s.id, revoked_at: s.revoked_at, expires_at: s.expires_at } : null;
+  }
+  const row = await d1
+    .prepare("SELECT id, revoked_at, expires_at FROM sessions WHERE id = ? LIMIT 1")
+    .bind(id)
+    .first<{ id: string; revoked_at: string | null; expires_at: string }>();
+  return row ?? null;
+}
+
+/* ---------------- admin sessions (revocable) ---------------- */
+
+export interface AdminSessionRecord {
+  id: string;
+  admin_id: string;
+  expires_at: string;
+  revoked_at: string | null;
+}
+
+export async function createAdminSession(s: { id: string; admin_id: string; expires_at: string }): Promise<void> {
+  const d1 = getD1();
+  if (!d1) {
+    mem().adminSessions.set(s.id, { ...s, revoked_at: null });
+    return;
+  }
+  await d1.prepare(
+    `INSERT INTO admin_sessions (id, admin_id, created_at, expires_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET admin_id = excluded.admin_id, expires_at = excluded.expires_at, revoked_at = NULL`
+  ).bind(s.id, s.admin_id, now(), s.expires_at).run();
+}
+
+export async function findAdminSession(id: string): Promise<AdminSessionRecord | null> {
+  const d1 = getD1();
+  if (!d1) return mem().adminSessions.get(id) ?? null;
+  const row = await d1
+    .prepare("SELECT id, admin_id, expires_at, revoked_at FROM admin_sessions WHERE id = ? LIMIT 1")
+    .bind(id)
+    .first<AdminSessionRecord>();
+  return row ?? null;
+}
+
+export async function revokeAdminSession(id: string): Promise<void> {
+  const d1 = getD1();
+  if (!d1) {
+    const s = mem().adminSessions.get(id);
+    if (s) s.revoked_at = now();
+    return;
+  }
+  await d1.prepare("UPDATE admin_sessions SET revoked_at = ? WHERE id = ?").bind(now(), id).run();
 }
 
 export async function addLog(type: string, licenseId: string | null, deviceId: string | null, metadata: unknown): Promise<void> {

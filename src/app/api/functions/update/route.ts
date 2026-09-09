@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addLog, getFunctions, setFunctions } from "@/lib/db";
 import { effectiveLicenseById } from "@/lib/license";
-import { getSessionToken, rateLimit, tooMany, verifySession } from "@/lib/auth";
+import { getSessionToken, isUserSessionActive, rateLimit, tooMany, verifySession } from "@/lib/auth";
 import { updateFunctionsSchema } from "@/lib/validation";
 import type { FunctionKey } from "@/lib/types";
 
@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   const token = getSessionToken(req);
   const claims = token ? await verifySession(token) : null;
   if (!claims) return NextResponse.json({ error: "Invalid or expired session", code: "session_invalid" }, { status: 401 });
+  if (!(await isUserSessionActive(claims.sid))) return NextResponse.json({ error: "Session revoked", code: "session_revoked" }, { status: 401 });
   if (!rateLimit(`fn:${claims.licenseId}`, 30, 60_000)) return tooMany();
 
   const body = await req.json().catch(() => ({}));
@@ -29,6 +30,12 @@ export async function POST(req: NextRequest) {
 
   const before = await getFunctions(lic.id);
   const next = await setFunctions(lic.id, null, parsed.data.states);
+  // Revocation race guard: if the session died mid-flight, restore the
+  // previous state instead of letting a revoked session mutate anything.
+  if (!(await isUserSessionActive(claims.sid))) {
+    await setFunctions(lic.id, null, before);
+    return NextResponse.json({ error: "Session revoked", code: "session_revoked" }, { status: 401 });
+  }
   // Audit-log every changed toggle (drives the Realtime activity timeline).
   for (const [k, v] of Object.entries(parsed.data.states)) {
     const key = k as FunctionKey;

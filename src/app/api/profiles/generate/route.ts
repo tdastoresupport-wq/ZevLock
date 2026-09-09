@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addLog, isPresetEnabled, listProfileEvents } from "@/lib/db";
-import { getSessionToken, rateLimit, tooMany, verifySession } from "@/lib/auth";
+import { getSessionToken, rateLimit, tooMany, verifySession, isUserSessionActive} from "@/lib/auth";
 import { effectiveLicenseById } from "@/lib/license";
 import { profilePresetSchema } from "@/lib/validation";
 import { PROFILE_CONTENT_TYPE, validateMobileconfig } from "@/lib/mobileconfig";
@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
   const token = getSessionToken(req);
   const claims = token ? await verifySession(token) : null;
   if (!claims) return NextResponse.json({ error: "Invalid or expired session", code: "session_invalid" }, { status: 401 });
+  if (!(await isUserSessionActive(claims.sid))) return NextResponse.json({ error: "Session revoked", code: "session_revoked" }, { status: 401 });
   if (!rateLimit(`profile:${claims.licenseId}`, 10, 3_600_000)) return tooMany();
 
   const body = await req.json().catch(() => ({}));

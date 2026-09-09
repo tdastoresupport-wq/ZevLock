@@ -5,10 +5,10 @@ import { cn } from "@/lib/cn";
 
 /**
  * Character artwork banner.
- * Drop the artwork file at `public/zev-character.jpg` — until then a
+ * Artwork lives at `public/zev-character.png` — until then a
  * purple gradient + glow fallback is shown (no broken UI).
  */
-export const CHARACTER_SRC = "/zev-character.jpg";
+export const CHARACTER_SRC = "/zev-character.png";
 
 export function HeroArt({ className, children }: { className?: string; children?: React.ReactNode }) {
   const [missing, setMissing] = useState(false);

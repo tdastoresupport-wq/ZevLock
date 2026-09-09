@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AdminRole } from "./types";
+import { findAdminSession, findSessionById } from "./db";
 
 /**
  * Session tokens: HMAC-signed `sid.licenseId.exp` triplets (base64url).
@@ -96,6 +97,48 @@ export async function requireSession(req: NextRequest): Promise<SessionClaims | 
   return verifySession(token);
 }
 
+/**
+ * Trusted client-IP model.
+ * - Production behind Cloudflare (`TRUST_EDGE=cloudflare`): ONLY
+ *   `cf-connecting-ip` is trusted. `x-forwarded-for` is client-spoofable
+ *   against the origin and is ignored entirely.
+ * - Local dev / other: deterministic fallback (cf-connecting-ip, then the
+ *   first x-forwarded-for entry, then "unknown"). Spoofing here only affects
+ *   a single local box and is documented, not trusted.
+ */
+export function getClientIp(req: NextRequest): string {
+  if (process.env.TRUST_EDGE === "cloudflare") {
+    return req.headers.get("cf-connecting-ip")?.trim() || "unknown";
+  }
+  const cf = req.headers.get("cf-connecting-ip")?.trim();
+  if (cf) return cf;
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim() || "unknown";
+  return "unknown";
+}
+
+/**
+ * Server-side session revalidation (F-AUTH-01 root-cause fix).
+ * A cryptographically valid token is NOT enough: the persistent session row
+ * must exist, be unrevoked, and unexpired. Call after verifySession on every
+ * authenticated user route.
+ */
+export async function isUserSessionActive(sid: string): Promise<boolean> {
+  const row = await findSessionById(sid);
+  if (!row || row.revoked_at) return false;
+  return new Date(row.expires_at).getTime() > Date.now();
+}
+
+/** Authenticated user license gate shared by user routes. */
+export async function requireActiveSession(
+  req: NextRequest
+): Promise<{ claims: SessionClaims } | { error: ReturnType<typeof unauthorized> }> {
+  const claims = await requireSession(req);
+  if (!claims) return { error: unauthorized("session_invalid") };
+  if (!(await isUserSessionActive(claims.sid))) return { error: unauthorized("session_revoked") };
+  return { claims };
+}
+
 export function unauthorized(code = "unauthorized") {
   return NextResponse.json({ error: "Unauthorized", code }, { status: 401 });
 }
@@ -139,7 +182,12 @@ export async function getAdmin(req: NextRequest): Promise<AdminClaims | null> {
   for (const t of [cookie, header]) {
     if (!t) continue;
     const v = await verifyAdminToken(t);
-    if (v) return v;
+    if (!v) continue;
+    // Password sessions are revocable: the persistent row must be live.
+    const row = await findAdminSession(`admin:${v.id}`);
+    if (!row || row.revoked_at) continue;
+    if (new Date(row.expires_at).getTime() < Date.now()) continue;
+    return v;
   }
   // Legacy static token (transition path for scripts) → pseudo super-admin.
   const expected = process.env.ADMIN_API_TOKEN ?? "";

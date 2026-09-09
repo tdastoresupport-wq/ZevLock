@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addLog, insertLicense, listLicenses } from "@/lib/db";
-import { adminOnly, rateLimit, tooMany } from "@/lib/auth";
+import { adminOnly, rateLimit, tooMany, getClientIp} from "@/lib/auth";
 import { createLicenseSchema } from "@/lib/validation";
 import { validateAvatar } from "@/lib/avatar";
 import { addDaysIso, generateLicenseKey, newId } from "@/lib/keys";
@@ -39,7 +39,7 @@ const PRESET_MS: Record<string, number> = {
 export async function POST(req: NextRequest) {
   const denied = await adminOnly(req);
   if (denied) return denied;
-  const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "anon";
+  const ip = getClientIp(req);
   if (!rateLimit(`admin-create:${ip}`, 20, 60_000)) return tooMany();
   const body = await req.json().catch(() => ({}));
   const parsed = createLicenseSchema.safeParse(body);
@@ -81,6 +81,8 @@ export async function POST(req: NextRequest) {
     avatar,
     notes: notes ?? null,
     last_used_at: null as string | null,
+    // Permanent is explicit at creation — never inferred later.
+    is_permanent: duration_preset === "permanent" ? 1 : 0,
   };
   await insertLicense(lic);
   await addLog("license.created", lic.id, null, { plan, duration_preset, device_limit });

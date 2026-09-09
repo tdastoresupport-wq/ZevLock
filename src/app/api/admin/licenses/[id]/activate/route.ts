@@ -16,11 +16,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = (await req.json().catch(() => ({}))) as { duration_days?: unknown };
   const parsed = extendLicenseSchema.safeParse(body.duration_days ? { extra_days: body.duration_days } : {});
   const days = parsed.success ? parsed.data.extra_days : 30;
-  const needsExpiry = !lic.expires_at || new Date(lic.expires_at).getTime() < Date.now();
+  const needsExpiry = lic.is_permanent !== 1 && (!lic.expires_at || new Date(lic.expires_at).getTime() < Date.now());
   const patch: { status: "ACTIVE"; activated_at?: string; expires_at?: string } = { status: "ACTIVE" };
   if (lic.status === "UNUSED" || needsExpiry) {
     patch.activated_at = lic.activated_at ?? new Date().toISOString();
-    patch.expires_at = addDaysIso(new Date(), days);
+    if (lic.is_permanent !== 1) patch.expires_at = addDaysIso(new Date(), days);
   }
   await updateLicense(lic.id, patch);
   await addLog("license.activated", lic.id, null, { by: "admin" });

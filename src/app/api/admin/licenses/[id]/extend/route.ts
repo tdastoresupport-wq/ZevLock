@@ -10,6 +10,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (denied) return denied;
   const lic = await findLicenseById((await params).id);
   if (!lic) return NextResponse.json({ error: "License not found", code: "not_found" }, { status: 404 });
+  // Permanent keys have no expiry to extend — changing that requires an
+  // explicit edit, never an implicit duration add.
+  if (lic.is_permanent === 1) {
+    return NextResponse.json({ error: "Permanent keys do not expire", code: "permanent_key" }, { status: 400 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const parsed = extendLicenseSchema.safeParse(body);

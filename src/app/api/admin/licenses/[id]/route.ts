@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addLog, countDevices, deleteLicense, findLicenseById, updateLicense } from "@/lib/db";
 import { effectiveLicense } from "@/lib/license";
-import { adminOnly, rateLimit, tooMany } from "@/lib/auth";
+import { adminOnly, rateLimit, tooMany, getClientIp} from "@/lib/auth";
 import { editLicenseSchema } from "@/lib/validation";
 import { validateAvatar } from "@/lib/avatar";
 
@@ -19,13 +19,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const denied = await adminOnly(req, "ADMIN");
   if (denied) return denied;
-  const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "anon";
+  const ip = getClientIp(req);
   if (!rateLimit(`admin-mutate:${ip}`, 30, 60_000)) return tooMany();
   const id = (await params).id;
   const lic = await findLicenseById(id);
   if (!lic) return NextResponse.json({ error: "License not found", code: "not_found" }, { status: 404 });
   await deleteLicense(id);
-  await addLog("license.deleted", null, null, { key: lic.key });
+  // Log the id only — never the reusable key value.
+  await addLog("license.deleted", null, null, { license_id: id });
   return NextResponse.json({ ok: true });
 }
 
@@ -33,7 +34,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const denied = await adminOnly(req);
   if (denied) return denied;
-  const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "anon";
+  const ip = getClientIp(req);
   if (!rateLimit(`admin-mutate:${ip}`, 30, 60_000)) return tooMany();
   const id = (await params).id;
   const lic = await findLicenseById(id);

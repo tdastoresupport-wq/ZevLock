@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addLog, listLogs, listPresetStates, profileStats, setPresetEnabled } from "@/lib/db";
-import { adminOnly, getAdmin, rateLimit, tooMany } from "@/lib/auth";
+import { adminOnly, getAdmin, rateLimit, tooMany, getClientIp} from "@/lib/auth";
 import { MOBILECONFIG_SCHEMA_VERSION, PRESET_MARKETING } from "@/lib/mobileconfig";
 import { CANONICAL_PROFILES } from "@/mobileconfig/profiles/bytes";
 import { z } from "zod";
@@ -48,7 +48,7 @@ const toggleSchema = z
 export async function POST(req: NextRequest) {
   const denied = await adminOnly(req, "ADMIN");
   if (denied) return denied;
-  const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "anon";
+  const ip = getClientIp(req);
   if (!rateLimit(`admin-mutate:${ip}`, 30, 60_000)) return tooMany();
 
   const body = await req.json().catch(() => ({}));

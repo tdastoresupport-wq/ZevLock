@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findLicenseByKey } from "@/lib/db";
 import { effectiveLicense } from "@/lib/license";
-import { rateLimit, tooMany } from "@/lib/auth";
+import { rateLimit, tooMany, getClientIp} from "@/lib/auth";
 import { checkLicenseSchema } from "@/lib/validation";
 
 /** POST /api/license/check — public, rate-limited. Returns minimal status info. */
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "anon";
+  const ip = getClientIp(req);
   if (!rateLimit(`check:${ip}`, 20, 60_000)) return tooMany();
 
   const body = await req.json().catch(() => ({}));
