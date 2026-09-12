@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { KeyRound, LogOut, Power, RefreshCw, SlidersHorizontal, Volume2, VolumeX } from "lucide-react";
 import { ErrorState, SectionHeader, Skeleton, StatusDot } from "./ui";
 import { Avatar, HeroArt } from "./HeroArt";
@@ -9,6 +9,8 @@ import { HealthRing } from "./HealthRing";
 import { LicenseModal } from "./modals";
 import { fmtDate, greeting, timeAgo } from "@/lib/format";
 import { isSoundEnabled, playClick, setSoundEnabled } from "@/lib/sound";
+import { useLicenseCountdown } from "@/lib/useLicenseCountdown";
+import { DUR, PRESS } from "@/lib/motion";
 import type { ActivityEvent, FunctionKey, FunctionStates, LicenseStatusResponse } from "@/lib/types";
 import { FUNCTIONS } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -29,6 +31,10 @@ export function HomeTab({
   const [showLicense, setShowLicense] = useState(false);
   const [sound, setSound] = useState(isSoundEnabled);
   const [failed, setFailed] = useState<FunctionKey | null>(null);
+  // Server-anchored license countdown (survives reload, ignores device clock).
+  const countdown = useLicenseCountdown(
+    status ? { expiresAt: status.license.expires_at, serverNow: status.license.server_now, isPermanent: status.license.is_permanent === 1 } : { expiresAt: null, serverNow: null, isPermanent: false }
+  );
 
   if (loading) {
     return (
@@ -40,7 +46,7 @@ export function HomeTab({
       </div>
     );
   }
-  if (error || !status) return <ErrorState message={error ?? "Couldn't load your dashboard."} onRetry={onRetry} />;
+  if (error || !status) return <ErrorState message={error ?? "Không tải được bảng điều khiển."} onRetry={onRetry} />;
 
   const onCount = Object.values(status.functions).filter(Boolean).length;
   const active = FUNCTIONS.filter((f) => status.functions[f.key]);
@@ -64,10 +70,10 @@ export function HomeTab({
   }
 
   const actions = [
-    { id: "controls", label: "Controls", icon: SlidersHorizontal, fn: () => { playClick(); onOpenControls(); } },
-    { id: "license", label: "License", icon: KeyRound, fn: () => { playClick(); setShowLicense(true); } },
-    { id: "sound", label: sound ? "Sound on" : "Muted", icon: sound ? Volume2 : VolumeX, fn: flipSound },
-    { id: "sync", label: "Sync", icon: RefreshCw, fn: () => { playClick(); onRetry(); } },
+    { id: "controls", label: "Điều khiển", icon: SlidersHorizontal, fn: () => { playClick(); onOpenControls(); } },
+    { id: "license", label: "Bản quyền", icon: KeyRound, fn: () => { playClick(); setShowLicense(true); } },
+    { id: "sound", label: sound ? "Đang bật loa" : "Tắt loa", icon: sound ? Volume2 : VolumeX, fn: flipSound },
+    { id: "sync", label: "Đồng bộ", icon: RefreshCw, fn: () => { playClick(); onRetry(); } },
   ];
 
   return (
@@ -80,7 +86,7 @@ export function HomeTab({
             <div className="min-w-0">
               <h1 className="text-[20px] font-black leading-none tracking-[0.14em]">ZEV</h1>
               <p className="mt-1 truncate text-[12.5px] text-slate-200">
-                {greeting()} · System ready
+                {greeting()} · Sẵn sàng
               </p>
             </div>
           </div>
@@ -95,8 +101,8 @@ export function HomeTab({
 
       {/* Compact status strip — no oversized cards */}
       <div>
-        <button className="zev-strip w-full text-left" onClick={() => setShowLicense(true)} aria-label="View license details">
-          <span className="text-slate-400">License</span>
+        <button className="zev-strip w-full text-left" onClick={() => setShowLicense(true)} aria-label="Xem chi tiết bản quyền">
+          <span className="text-slate-400">Bản quyền</span>
           <span className="flex items-center gap-1.5 font-bold">
             <span className="dot dot-on-green" />
             <span className="text-emerald-300">{status.license.status}</span>
@@ -104,12 +110,14 @@ export function HomeTab({
           </span>
         </button>
         <div className="zev-strip">
-          <span className="text-slate-400">Device</span>
+          <span className="text-slate-400">Thiết bị</span>
           <span className="font-bold">{status.device.platform} · <span className="text-emerald-300">{status.device.status}</span></span>
         </div>
         <div className="zev-strip">
-          <span className="text-slate-400">Expires</span>
-          <span className="tnum font-bold">{fmtDate(status.license.expires_at)}</span>
+          <span className="text-slate-400">Hết hạn</span>
+          <span className="tnum font-bold">
+            {status.license.is_permanent === 1 ? "Vĩnh viễn" : `${countdown.label} · ${fmtDate(status.license.expires_at)}`}
+          </span>
         </div>
       </div>
 
@@ -120,9 +128,9 @@ export function HomeTab({
           return (
             <motion.button
               key={a.id}
-              whileTap={{ scale: 0.93 }}
+              whileTap={{ scale: PRESS.std }}
               onClick={a.fn}
-              className="flex flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-slate-200"
+              className="zev-noselect flex flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-slate-200"
               aria-label={a.label}
             >
               <Icon size={19} className="text-purple-300" />
@@ -135,7 +143,7 @@ export function HomeTab({
       {/* Grouped systems: active first, dense tappable rows */}
       <div className="space-y-4">
         <SystemGroup
-          title={`ACTIVE · ${active.length}`}
+          title={`ĐANG BẬT · ${active.length}`}
           keys={active.map((f) => f.key)}
           functions={status.functions}
           savingKey={savingKey}
@@ -144,7 +152,7 @@ export function HomeTab({
         />
         {standby.length > 0 && (
           <SystemGroup
-            title={`INACTIVE · ${standby.length}`}
+            title={`ĐANG TẮT · ${standby.length}`}
             dim
             keys={standby.map((f) => f.key)}
             functions={status.functions}
@@ -157,7 +165,7 @@ export function HomeTab({
 
       {/* Recent activity — real events only */}
       <div>
-        <SectionHeader kicker="RECENT ACTIVITY" />
+        <SectionHeader kicker="HOẠT ĐỘNG GẦN ĐÂY" />
         <div className="mt-2 space-y-2.5">
           {activity.slice(0, 5).map((a) => (
             <div key={a.id} className="flex items-center gap-2.5">
@@ -172,20 +180,20 @@ export function HomeTab({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-semibold text-slate-100">{a.label}</p>
                 <p className="text-[11px] text-slate-500">
-                  {a.action ?? (a.kind === "enabled" ? "Enabled" : "Disabled")}
+                  {a.action ?? (a.kind === "enabled" ? "Đã bật" : "Đã tắt")}
                   {a.iso ? ` · ${timeAgo(a.iso)}` : a.at ? ` · ${a.at}` : ""}
                 </p>
               </div>
             </div>
           ))}
           {activity.length === 0 && (
-            <p className="text-[13px] text-slate-500">No activity yet — toggle a system to begin.</p>
+            <p className="text-[13px] text-slate-500">Chưa có gì — bật một chức năng để bắt đầu.</p>
           )}
         </div>
       </div>
 
-      <button onClick={onLogout} className="zev-btn-ghost flex w-full items-center justify-center gap-2" aria-label="Sign out">
-        <LogOut size={16} /> Sign out
+      <button onClick={onLogout} className="zev-btn-ghost flex w-full items-center justify-center gap-2" aria-label="Đăng xuất">
+        <LogOut size={16} /> Đăng xuất
       </button>
 
       {showLicense && (
@@ -211,6 +219,8 @@ function SystemGroup({
     <div>
       <SectionHeader kicker={title} />
       <div className={cn("mt-1.5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]", dim && "opacity-75")}>
+        {/* Exit-only fade on group change. No enter/layout animation. */}
+        <AnimatePresence initial={false} mode="popLayout">
         {keys.map((key, i) => {
           const meta = FUNCTIONS.find((f) => f.key === key)!;
           const on = functions[key];
@@ -221,10 +231,11 @@ function SystemGroup({
               role="switch"
               aria-checked={on}
               aria-label={`${meta.name}, ${on ? "on" : "off"}`}
-              whileTap={{ scale: 0.985 }}
+              whileTap={{ scale: PRESS.soft }}
+              exit={{ opacity: 0, transition: { duration: DUR.press } }}
               onClick={() => onFlip(key)}
               className={cn(
-                "flex w-full items-center gap-3 px-3.5 py-2.5 text-left",
+                "zev-noselect flex w-full items-center gap-3 px-3.5 py-2.5 text-left",
                 i > 0 && "border-t border-white/5"
               )}
             >
@@ -232,7 +243,7 @@ function SystemGroup({
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13.5px] font-bold">{meta.name}</span>
                 <span className="block truncate text-[11.5px] text-slate-400">{meta.blurb}</span>
-                {failed === key && <span className="block text-[11px] text-red-400">Save failed — rolled back.</span>}
+                {failed === key && <span className="block text-[11px] text-red-400">Lưu lỗi — đã hoàn tác.</span>}
               </span>
               <span className={cn(
                 "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black tracking-wider",
@@ -244,6 +255,7 @@ function SystemGroup({
             </motion.button>
           );
         })}
+        </AnimatePresence>
       </div>
     </div>
   );

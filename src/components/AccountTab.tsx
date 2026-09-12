@@ -5,10 +5,10 @@ import { Copy, LogOut, Smartphone, Volume2, VolumeX } from "lucide-react";
 import { ErrorState, SectionHeader, Skeleton } from "./ui";
 import { ConfirmDialog } from "./ui";
 import { KeyAvatar } from "./KeyAvatar";
-import { ProfilesSection } from "./ProfilesSection";
 import { fmtDate } from "@/lib/format";
 import { getBatteryInfo, getTelemetry, subscribeOnline, type BatteryInfo, type DeviceTelemetry } from "@/lib/telemetry";
 import { isSoundEnabled, playClick, setSoundEnabled } from "@/lib/sound";
+import { useLicenseCountdown } from "@/lib/useLicenseCountdown";
 import type { LicenseStatusResponse } from "@/lib/types";
 
 /** Account center: profile, license, device facts, session, preferences, actions. */
@@ -26,6 +26,10 @@ export function AccountTab({
   const [confirmReset, setConfirmReset] = useState(false);
   const [telemetry, setTelemetry] = useState<DeviceTelemetry | null>(null);
   const [battery, setBattery] = useState<BatteryInfo | null>(null);
+  // Server-anchored countdown: continuous across reload, immune to clock tampering.
+  const countdown = useLicenseCountdown(
+    status ? { expiresAt: status.license.expires_at, serverNow: status.license.server_now, isPermanent: status.license.is_permanent === 1 } : { expiresAt: null, serverNow: null, isPermanent: false }
+  );
 
   useEffect(() => {
     setTelemetry(getTelemetry());
@@ -45,10 +49,10 @@ export function AccountTab({
       </div>
     );
   }
-  if (error || !status) return <ErrorState message={error ?? "Couldn't load your account."} onRetry={onRetry} />;
+  if (error || !status) return <ErrorState message={error ?? "Không tải được tài khoản."} onRetry={onRetry} />;
 
   const lic = status.license;
-  const displayName = lic.display_name || "ZEV Member";
+  const displayName = lic.display_name || "Thành viên ZEV";
 
   function flipSound() {
     const next = !sound;
@@ -63,23 +67,23 @@ export function AccountTab({
   }
 
   const facts: [string, string][] = [
-    ["Platform", status.device.platform],
-    ["Binding", status.device.status === "BOUND" ? "Bound to this device" : "Not bound"],
-    ["CPU cores", telemetry?.cores != null ? String(telemetry.cores) : "Unavailable"],
-    ["Memory", telemetry?.memoryGB != null ? `~${telemetry.memoryGB} GB` : "Unavailable"],
-    ["Screen", telemetry?.screen ?? "Unavailable"],
-    ["Network", telemetry?.network ?? (telemetry?.online ? "Online" : "Offline")],
-    ["Battery", battery ? `${Math.round(battery.level * 100)}%${battery.charging ? " · charging" : ""}` : "Unavailable"],
+    ["Nền tảng", status.device.platform],
+    ["Liên kết", status.device.status === "BOUND" ? "Đã gắn với máy này" : "Chưa gắn"],
+    ["Nhân CPU", telemetry?.cores != null ? String(telemetry.cores) : "Không có"],
+    ["Bộ nhớ", telemetry?.memoryGB != null ? `~${telemetry.memoryGB} GB` : "Không có"],
+    ["Màn hình", telemetry?.screen ?? "Không có"],
+    ["Mạng", telemetry?.network ?? (telemetry?.online ? "Trực tuyến" : "Ngoại tuyến")],
+    ["Pin", battery ? `${Math.round(battery.level * 100)}%${battery.charging ? " · đang sạc" : ""}` : "Không có"],
   ];
 
   return (
     <div className="space-y-5">
       <div className="pt-1">
-        <h1 className="text-[22px] font-black">Account</h1>
+        <h1 className="text-[22px] font-black">Tài khoản</h1>
       </div>
 
       {/* Profile */}
-      <div className="flex items-center gap-3.5">
+      <div className="zev-enter flex items-center gap-3.5">
         <KeyAvatar value={lic.avatar} name={displayName} size={60} />
         <div className="min-w-0">
           <p className="truncate text-[18px] font-black">{displayName}</p>
@@ -90,58 +94,64 @@ export function AccountTab({
 
       {/* License */}
       <div>
-        <SectionHeader kicker="LICENSE" />
+        <SectionHeader kicker="BẢN QUYỀN" />
         <div className="mt-1.5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
           <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
             <p className="min-w-0 flex-1 truncate font-mono text-[13px] font-bold">{lic.key}</p>
-            <button onClick={() => void copyKey()} aria-label="Copy license key" className="rounded-lg border border-white/10 p-2 text-slate-300">
+            <button onClick={() => void copyKey()} aria-label="Chép mã key" className="rounded-lg border border-white/10 p-2 text-slate-300" style={{ minWidth: 44, minHeight: 44 }}>
               <Copy size={14} />
             </button>
           </div>
-          <InfoRow k="State" v={lic.status} accent />
-          <InfoRow k="Created" v={fmtDate(lic.created_at)} />
-          <InfoRow k="Expires" v={lic.expires_at ? fmtDate(lic.expires_at) : "Never"} />
+          <InfoRow k="Trạng thái" v={lic.status} accent />
+          <InfoRow k="Còn lại" v={countdown.label} accent />
+          <InfoRow k="Ngày tạo" v={fmtDate(lic.created_at)} />
+          <InfoRow k="Hết hạn" v={lic.is_permanent === 1 ? "Vĩnh viễn" : fmtDate(lic.expires_at)} />
+        </div>
+      </div>
+
+      {/* Active function state (server-authoritative) */}
+      <div>
+        <SectionHeader kicker="CHỨC NĂNG" />
+        <div className="mt-1.5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+          <InfoRow k="Đang bật" v={`${Object.values(status.functions).filter(Boolean).length}/${Object.keys(status.functions).length} chức năng`} accent />
         </div>
       </div>
 
       {/* Device — measured facts only */}
       <div>
-        <SectionHeader kicker="THIS DEVICE" />
+        <SectionHeader kicker="MÁY NÀY" />
         <div className="mt-1.5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
           {facts.map(([k, v]) => (
             <InfoRow key={k} k={k} v={v} />
           ))}
         </div>
-        <p className="mt-1.5 text-[11px] text-slate-600">Measured in this browser — unavailable means the browser hides it.</p>
+        <p className="mt-1.5 text-[11px] text-slate-600">Số liệu đo trong trình duyệt — chữ “Không có” nghĩa là trình duyệt không cho xem.</p>
       </div>
 
       {/* Session */}
       <div>
-        <SectionHeader kicker="SESSION" />
+        <SectionHeader kicker="PHIÊN" />
         <div className="mt-1.5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
-          <InfoRow k="State" v="Active" accent />
-          <InfoRow k="Valid until" v={fmtDate(status.session_expires_at)} />
+          <InfoRow k="Trạng thái" v="Đang dùng" accent />
+          <InfoRow k="Hiệu lực đến" v={fmtDate(status.session_expires_at)} />
         </div>
       </div>
 
-      {/* iOS install profile */}
-      <ProfilesSection />
-
       {/* Preferences */}
       <div>
-        <SectionHeader kicker="PREFERENCES" />        <button
+        <SectionHeader kicker="TÙY CHỌN" />        <button
           role="switch"
           aria-checked={sound}
-          aria-label="Sound effects"
+          aria-label="Âm thanh"
           onClick={flipSound}
           className="mt-1.5 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.02] px-3.5 py-3"
         >
           <span className="flex items-center gap-2.5 text-[13.5px] font-bold">
             {sound ? <Volume2 size={17} className="text-purple-300" /> : <VolumeX size={17} className="text-slate-500" />}
-            Sound effects
+            Âm thanh
           </span>
           <span className={`text-[12px] font-black ${sound ? "text-emerald-300" : "text-slate-500"}`}>
-            {sound ? "ON" : "OFF"}
+            {sound ? "BẬT" : "TẮT"}
           </span>
         </button>
       </div>
@@ -152,18 +162,18 @@ export function AccountTab({
           onClick={() => setConfirmReset(true)}
           className="zev-btn-ghost flex w-full items-center justify-center gap-2"
         >
-          <Smartphone size={16} /> Unbind this device
+          <Smartphone size={16} /> Gỡ máy này
         </button>
-        <button onClick={onLogout} className="zev-btn-ghost flex w-full items-center justify-center gap-2" aria-label="Sign out">
-          <LogOut size={16} /> Sign out
+        <button onClick={onLogout} className="zev-btn-ghost flex w-full items-center justify-center gap-2" aria-label="Đăng xuất">
+          <LogOut size={16} /> Đăng xuất
         </button>
       </div>
 
       {confirmReset && (
         <ConfirmDialog
-          title="Unbind this device?"
-          body="This license will be unbound and you'll sign out. Activate again to continue."
-          confirmLabel="Unbind"
+          title="Gỡ máy này?"
+          body="Key sẽ được gỡ khỏi máy và bạn sẽ đăng xuất. Kích hoạt lại để dùng tiếp."
+          confirmLabel="Gỡ máy"
           danger
           onConfirm={() => { setConfirmReset(false); return onResetDevice(); }}
           onCancel={() => setConfirmReset(false)}

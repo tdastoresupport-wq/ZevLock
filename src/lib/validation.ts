@@ -51,6 +51,8 @@ export const editLicenseSchema = z.object({
   plan: z.string().trim().min(1).max(64).optional(),
   device_limit: z.number().int().min(1).max(10).optional(),
   expires_at: z.string().max(64).nullable().optional(),
+  /** Permanent toggle: true clears expiry, false requires expires_at in the same body. */
+  is_permanent: z.boolean().optional(),
 });
 
 export const adminLoginSchema = z.object({

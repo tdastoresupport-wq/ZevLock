@@ -10,11 +10,12 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "cf:build": "opennextjs-cloudflare build",
+    "cf:pages": "opennextjs-cloudflare build && node scripts/bundle-pages-worker.cjs",
     "cf:preview": "opennextjs-cloudflare preview",
     "cf:deploy": "opennextjs-cloudflare deploy",
     "db:migrate:local": "wrangler d1 migrations apply zevlock-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply zevlock-db --remote",
-    "db:seed:local": "wrangler d1 execute zevlock-db --local --file=./migrations/0002_seed.sql",
+    "db:seed:local": "wrangler d1 execute zevlock-db --local --file=./seeds/0002_seed.dev.sql",
     "test:mobileconfig": "python3 scripts/test-mobileconfig.py",
     "test": "python3 scripts/test-mobileconfig.py"
   },

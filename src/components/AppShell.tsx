@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { BottomNav, type Tab } from "@/components/BottomNav";
-import { BrandMark } from "@/components/BrandMark";
+import { Wordmark } from "@/components/Wordmark";
 import { LicenseScreen } from "@/components/LicenseScreen";
 import { WelcomeModal } from "@/components/modals";
 import { HomeTab } from "@/components/HomeTab";
@@ -12,6 +12,7 @@ import { FunctionTab, persistMany, persistToggle } from "@/components/FunctionTa
 import { RealtimeTab } from "@/components/RealtimeTab";
 import { api, fetchWithTimeout, storageGet } from "@/lib/api";
 import { getDeviceId } from "@/lib/device";
+import { DUR, EASE_OUT } from "@/lib/motion";
 import type { ActivityEvent, FunctionKey, FunctionStates, LicenseStatusResponse } from "@/lib/types";
 
 const ACT_KEY = "zev_activity";
@@ -99,9 +100,12 @@ export default function AppShell() {
 
   // Re-sync authoritative state whenever the tab becomes visible again,
   // so a toggle-then-navigate-away sequence can never leave stale UI.
+  // Also pauses the Aurora ambient loop while hidden (paint savings).
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === "visible" && localStorage.getItem("zev_token")) void refresh();
+      const hidden = document.visibilityState !== "visible";
+      document.body.classList.toggle("zev-paused", hidden);
+      if (!hidden && localStorage.getItem("zev_token")) void refresh();
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
@@ -181,11 +185,10 @@ export default function AppShell() {
   if (booting) {
     return (
       <div className="relative flex min-h-dvh flex-col items-center justify-center gap-4 overflow-hidden">
+        <div className="zev-aurora" aria-hidden="true" />
         <div className="zev-hero-glow" />
         <div className="zev-splash-logo flex flex-col items-center">
-          <BrandMark size={84} />
-          <p className="mt-4 text-2xl font-black tracking-[0.32em]">ZEV</p>
-          <p className="mt-1.5 text-[11px] font-bold tracking-[0.4em] text-purple-300">LOCK</p>
+          <Wordmark size="lg" />
         </div>
       </div>
     );
@@ -207,13 +210,14 @@ export default function AppShell() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="zev-top-pad min-h-dvh px-4 pb-28">
+        <div className="zev-aurora" aria-hidden="true" />
         <AnimatePresence mode="wait">
           <motion.main
             key={tab}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: DUR.fast, ease: EASE_OUT }}
           >
             {tab === "home" && (
               <HomeTab
@@ -256,6 +260,7 @@ export default function AppShell() {
         <AnimatePresence>
           {welcome && (
             <WelcomeModal
+              key="welcome"
               plan={status.license.plan}
               device={`${status.device.platform} · ${status.device.status}`}
               onEnter={() => setWelcome(false)}

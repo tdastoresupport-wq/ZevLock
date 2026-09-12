@@ -3,15 +3,16 @@
 import { motion } from "framer-motion";
 import { Home, SlidersHorizontal, Activity, UserRound } from "lucide-react";
 import { playClick } from "@/lib/sound";
+import { PRESS, SPRING } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 
 export type Tab = "home" | "function" | "realtime" | "account";
 
 const ITEMS: { id: Tab; label: string; icon: typeof Home }[] = [
-  { id: "home", label: "Home", icon: Home },
-  { id: "function", label: "Function", icon: SlidersHorizontal },
-  { id: "realtime", label: "Realtime", icon: Activity },
-  { id: "account", label: "Account", icon: UserRound },
+  { id: "home", label: "Trang chủ", icon: Home },
+  { id: "function", label: "Chức năng", icon: SlidersHorizontal },
+  { id: "realtime", label: "Trực tiếp", icon: Activity },
+  { id: "account", label: "Tài khoản", icon: UserRound },
 ];
 
 export function BottomNav({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
@@ -22,10 +23,11 @@ export function BottomNav({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => v
           const active = tab === item.id;
           const Icon = item.icon;
           return (
-            <button
+            <motion.button
               key={item.id}
+              whileTap={{ scale: PRESS.nav }}
               onClick={() => { if (!active) playClick(); onChange(item.id); }}
-              className="flex flex-col items-center gap-1 py-1.5"
+              className="zev-noselect flex flex-col items-center gap-1 py-1.5"
               style={{ minHeight: 56 }}
               aria-current={active ? "page" : undefined}
             >
@@ -33,7 +35,7 @@ export function BottomNav({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => v
                 {active && (
                   <motion.span
                     layoutId="zev-nav-pill"
-                    transition={{ type: "spring", stiffness: 550, damping: 38 }}
+                    transition={SPRING.nav}
                     className="absolute inset-0 rounded-full bg-purple-500/20 shadow-[0_0_14px_rgba(168,85,247,0.25)]"
                   />
                 )}
@@ -42,7 +44,7 @@ export function BottomNav({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => v
               <span className={cn("text-[11px] font-semibold", active ? "text-white" : "text-slate-500")}>
                 {item.label}
               </span>
-            </button>
+            </motion.button>
           );
         })}
       </div>

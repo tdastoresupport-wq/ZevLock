@@ -30,9 +30,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   return NextResponse.json({ ok: true });
 }
 
-/** PATCH /api/admin/licenses/:id — edit presentation + limits. */
+/** PATCH /api/admin/licenses/:id — edit presentation + limits. ADMIN+ only. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await adminOnly(req);
+  const denied = await adminOnly(req, "ADMIN");
   if (denied) return denied;
   const ip = getClientIp(req);
   if (!rateLimit(`admin-mutate:${ip}`, 30, 60_000)) return tooMany();
@@ -45,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request", code: "invalid_request" }, { status: 400 });
   }
-  const { display_name, avatar, notes, plan, device_limit, expires_at } = parsed.data;
+  const { display_name, avatar, notes, plan, device_limit, expires_at, is_permanent } = parsed.data;
   if (avatar !== undefined) {
     const check = validateAvatar(avatar);
     if (!check.ok) return NextResponse.json({ error: check.error, code: "invalid_avatar" }, { status: 400 });
@@ -59,7 +59,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (notes !== undefined) patch.notes = notes;
   if (plan !== undefined) patch.plan = plan;
   if (device_limit !== undefined) patch.device_limit = device_limit;
-  if (expires_at !== undefined) patch.expires_at = expires_at;
+  // Permanent flag and expiry are synced atomically: permanent ⇔ (flag + NULL
+  // expiry). Clearing permanent without a new expiry is rejected, and setting
+  // an expiry on a permanent key without clearing the flag is rejected —
+  // otherwise the flag (authoritative for "never expires") would silently win.
+  if (is_permanent === true) {
+    patch.is_permanent = 1;
+    patch.expires_at = null;
+  } else if (is_permanent === false) {
+    if (expires_at === undefined || expires_at === null || Number.isNaN(Date.parse(expires_at))) {
+      return NextResponse.json({ error: "Clearing permanent requires a valid expires_at", code: "invalid_request" }, { status: 400 });
+    }
+    patch.is_permanent = 0;
+    patch.expires_at = expires_at;
+  } else if (expires_at !== undefined) {
+    if (lic.is_permanent === 1 && expires_at !== null) {
+      return NextResponse.json({ error: "Key is permanent — clear permanent first", code: "permanent_key" }, { status: 400 });
+    }
+    patch.expires_at = expires_at;
+  }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "Nothing to update", code: "invalid_request" }, { status: 400 });
   }

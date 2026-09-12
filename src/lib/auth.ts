@@ -32,7 +32,14 @@ async function hmac(secret: string, msg: string): Promise<string> {
 }
 
 function getSecret(): string {
-  return process.env.SESSION_SECRET ?? "dev-only-session-secret-change-me-32-chars-min";
+  const s = process.env.SESSION_SECRET;
+  if (s) return s;
+  // Fail closed in production: a public default would let anyone forge
+  // sessions. Local dev keeps an explicit dev-only fallback.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET is not configured — refusing to sign sessions with a public default");
+  }
+  return "dev-only-session-secret-change-me-32-chars-min";
 }
 
 export interface SessionClaims { sid: string; licenseId: string; exp: number }

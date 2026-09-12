@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Power, RefreshCw } from "lucide-react";
 import { Card, ErrorState, SectionHeader, Skeleton, StatusDot } from "./ui";
-import { fmtCountdown, fmtDate, timeAgo } from "@/lib/format";
+import { fmtCountdown, fmtDate, timeAgo, timeAgoShort } from "@/lib/format";
 import { playClick } from "@/lib/sound";
 import { subscribeOnline } from "@/lib/telemetry";
 import { FUNCTIONS, type ActivityEvent, type FunctionStates, type LicenseStatusResponse } from "@/lib/types";
+import { DUR, PRESS, SPRING } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 
 /** Realtime tab — live APP telemetry only (session, events, toggles). No game/hardware data, ever. */
@@ -26,7 +27,9 @@ export function RealtimeTab({
   const [online, setOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
   useEffect(() => {
     setMounted(true);
-    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    // Pause the ticker while the page is hidden (battery + processor).
+    const tick = () => { if (!document.hidden) setNowMs(Date.now()); };
+    const t = setInterval(tick, 1000);
     const unsub = subscribeOnline(setOnline);
     return () => { clearInterval(t); unsub(); };
   }, []);
@@ -40,7 +43,7 @@ export function RealtimeTab({
       </div>
     );
   }
-  if (error || !status) return <ErrorState message={error ?? "Couldn't load realtime status."} onRetry={() => { void onSync().catch(() => {}); }} />;
+  if (error || !status) return <ErrorState message={error ?? "Không tải được trạng thái."} onRetry={() => { void onSync().catch(() => {}); }} />;
 
   const licenseOk = status.license.status === "ACTIVE";
   const remaining = new Date(status.session_expires_at).getTime() - nowMs;
@@ -59,14 +62,14 @@ export function RealtimeTab({
     <div className="space-y-5">
       <div className="pt-1 flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-black">Realtime</h1>
-          <p className="mt-0.5 text-[12px] text-slate-400">Live status.</p>
+          <h1 className="text-[22px] font-black">Trực tiếp</h1>
+          <p className="mt-0.5 text-[12px] text-slate-400">Trạng thái trực tiếp.</p>
         </div>
         <motion.button
-          whileTap={{ scale: 0.9 }}
+          whileTap={{ scale: PRESS.hard }}
           onClick={sync}
-          aria-label="Sync status"
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-purple-200"
+          aria-label="Đồng bộ trạng thái"
+          className="zev-noselect flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-purple-200"
         >
           <motion.span animate={syncing ? { rotate: 360 } : { rotate: 0 }} transition={{ duration: 0.8, ease: "easeInOut" }}>
             <RefreshCw size={18} />
@@ -79,23 +82,23 @@ export function RealtimeTab({
         <div className="zev-hero-glow" />
         <p className="flex items-center justify-center gap-2 text-[11px] font-black tracking-[0.24em] text-slate-300">
           <span className={online ? "zev-live-dot" : "dot bg-amber-400"} aria-hidden="true" />
-          {online ? "LIVE SESSION" : "OFFLINE — SHOWING LAST SYNC"}
+          {online ? "ĐANG TRỰC TIẾP" : "NGOẠI TUYẾN — DỮ LIỆU CŨ"}
         </p>
         <p className="tnum mt-2 text-[42px] font-black leading-none tracking-tight" aria-hidden="true">
           {mounted ? fmtCountdown(remaining) : "––:––:––"}
         </p>
         <p className="sr-only">Session expires {fmtDate(status.session_expires_at)}</p>
         <p className="mt-2 text-[12px] text-slate-400">
-          {licenseOk ? "License valid" : status.license.status} · expires {fmtDate(status.session_expires_at)}
+          {licenseOk ? "Key còn hiệu lực" : status.license.status} · hết hạn {fmtDate(status.session_expires_at)}
         </p>
       </div>
 
       {/* Real telemetry counters */}
       <div className="grid grid-cols-3 gap-2 text-center">
         {[
-          { v: String(activity.length), l: "Events" },
-          { v: `${onCount}/${FUNCTIONS.length}`, l: "Active" },
-          { v: last?.iso ? timeAgo(last.iso).replace(" ago", "") : "—", l: "Last change" },
+          { v: String(activity.length), l: "Sự kiện" },
+          { v: `${onCount}/${FUNCTIONS.length}`, l: "Đang bật" },
+          { v: last?.iso ? timeAgoShort(last.iso) : "—", l: "Mới nhất" },
         ].map((s) => (
           <div key={s.l} className="rounded-2xl border border-white/10 bg-white/[0.02] px-2 py-3">
             <p className="tnum truncate text-[17px] font-black">{s.v}</p>
@@ -106,10 +109,10 @@ export function RealtimeTab({
 
       {/* Event pulse — bars drawn from real toggle events */}
       <div>
-        <SectionHeader kicker="EVENT PULSE · THIS DEVICE" />
+        <SectionHeader kicker="XUNG SỰ KIỆN · MÁY NÀY" />
         <Card className="!p-3.5">
           {bars.length === 0 ? (
-            <p className="py-2 text-center text-[12px] text-slate-500">Nothing here yet — activity appears as you use the app.</p>
+            <p className="py-2 text-center text-[12px] text-slate-500">Chưa có gì — dùng app là hiện ở đây.</p>
           ) : (
             <div className="flex h-16 items-end gap-1" aria-hidden="true">
               {bars.map((b, i) => (
@@ -118,7 +121,7 @@ export function RealtimeTab({
                   layout
                   initial={{ scaleY: 0.2, opacity: 0 }}
                   animate={{ scaleY: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 26 }}
+                  transition={SPRING.soft}
                   className={cn(
                     "min-w-0 flex-1 origin-bottom rounded-sm",
                     b.kind === "enabled" ? "bg-purple-400/90" : "bg-slate-600/70"
@@ -137,7 +140,7 @@ export function RealtimeTab({
                   layout
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22 }}
+                  transition={{ duration: DUR.base }}
                   className="flex items-center gap-2 text-[12.5px]"
                 >
                   <Power size={12} className={a.kind === "enabled" ? "shrink-0 text-emerald-300" : "shrink-0 text-slate-500"} />
@@ -154,7 +157,7 @@ export function RealtimeTab({
 
       {/* Compact function grid */}
       <div>
-        <SectionHeader kicker="FUNCTION STATUS" />
+        <SectionHeader kicker="TRẠNG THÁI CHỨC NĂNG" />
         <div className="mt-1.5 grid grid-cols-2 gap-1.5">
           {FUNCTIONS.map((f) => {
             const on = status.functions[f.key as keyof FunctionStates];
@@ -180,7 +183,7 @@ export function RealtimeTab({
       </div>
 
       <p className="pb-2 text-center text-[11px] text-slate-600">
-        App telemetry only
+        Chỉ số liệu trong app
       </p>
     </div>
   );

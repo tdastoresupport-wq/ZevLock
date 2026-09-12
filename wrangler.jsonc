@@ -16,12 +16,13 @@
     {
       "binding": "DB",
       "database_name": "zevlock-db",
-      "database_id": "REPLACE_WITH_WRANGLER_D1_ID",
+      "database_id": "ee1ee684-ba90-44f5-ab42-2ba229b2efab",
       "migrations_dir": "migrations"
     }
   ],
   "vars": {
     "DEFAULT_DEVICE_LIMIT": "1",
-    "DEFAULT_PLAN": "Premium"
+    "DEFAULT_PLAN": "Premium",
+    "TRUST_EDGE": "cloudflare"
   }
 }

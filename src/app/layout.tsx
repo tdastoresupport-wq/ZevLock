@@ -4,9 +4,18 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Zev Lock",
   description: "Zev Lock — premium license platform",
+  applicationName: "Zev Lock",
   manifest: "/manifest.webmanifest",
+  formatDetection: { telephone: false },
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Zev Lock" },
-  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.svg" },
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/zev-character.png", type: "image/png", sizes: "512x512" }],
+    apple: [{ url: "/apple-touch-icon.svg", type: "image/svg+xml" }, { url: "/zev-character.png", type: "image/png", sizes: "512x512" }],
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {

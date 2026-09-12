@@ -18,10 +18,11 @@ export function HeroArt({ className, children }: { className?: string; children?
       {!missing && (
         // Plain <img> on purpose: the artwork file may not exist yet and
         // next/image cannot handle a runtime-missing local file gracefully.
+        // fetchpriority: hero is the LCP element.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={CHARACTER_SRC} alt="Zev character artwork" decoding="async" onError={() => setMissing(true)} />
+        <img src={CHARACTER_SRC} alt="Ảnh nhân vật Zev" decoding="async" fetchPriority="high" onError={() => setMissing(true)} />
       )}
-      {children && <div className="absolute inset-0 z-10 flex flex-col justify-end p-4">{children}</div>}
+      {children && <div className="zev-enter absolute inset-0 z-10 flex flex-col justify-end p-4">{children}</div>}
     </div>
   );
 }
@@ -36,7 +37,7 @@ export function Avatar({ size = 40 }: { size?: number }) {
     >
       {!missing ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={CHARACTER_SRC} alt="Zev" className="h-full w-full object-cover" decoding="async" onError={() => setMissing(true)} />
+        <img src={CHARACTER_SRC} alt="Zev" loading="lazy" className="h-full w-full object-cover" decoding="async" onError={() => setMissing(true)} />
       ) : (
         <span className="font-black text-white" style={{ fontSize: size * 0.42 }}>Z</span>
       )}

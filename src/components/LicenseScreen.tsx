@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { KeyRound, ShieldCheck, CircleAlert, Clock3 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getDeviceId, getPlatform } from "@/lib/device";
-import { BrandMark } from "./BrandMark";
+import { Wordmark } from "./Wordmark";
 import type { LicenseStatusResponse } from "@/lib/types";
 
 type Phase = "input" | "checking" | "expired" | "error" | "success";
@@ -27,7 +27,7 @@ export function LicenseScreen({
     const normalized = key.trim().toUpperCase();
     if (!/^ZEV-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalized)) {
       setPhase("error");
-      setMessage("That key doesn't look right. Format: ZEV-XXXX-XXXX-XXXX.");
+      setMessage("Key chưa đúng. Định dạng: ZEV-XXXX-XXXX-XXXX.");
       return;
     }
     setPhase("checking");
@@ -45,7 +45,7 @@ export function LicenseScreen({
           onActivated(status);
         } catch {
           setPhase("error");
-          setMessage("Activated, but loading your session failed. Reopen the app.");
+          setMessage("Đã kích hoạt nhưng tải phiên thất bại. Mở lại app nhé.");
         }
       }, 900);
     } catch (e) {
@@ -62,25 +62,24 @@ export function LicenseScreen({
 
   return (
     <div className="zev-top-pad flex min-h-dvh flex-col px-5 pb-10">
+      <div className="zev-aurora" aria-hidden="true" />
       {/* Branding */}
       <div className="mt-10 flex flex-col items-center text-center">
-        <BrandMark size={76} />
-        <h1 className="mt-5 text-[34px] font-black tracking-[0.28em]">ZEV</h1>
-        <p className="mt-1 text-sm font-semibold tracking-[0.3em] text-cyan-300/90">LOCK</p>
+        <Wordmark size="lg" />
         <p className="mt-4 max-w-[280px] text-[13px] leading-relaxed text-slate-400">
-          Enter your key to get started.
+          Nhập key để bắt đầu.
         </p>
       </div>
 
       {/* Key entry */}
       <div className="zev-card mt-8 p-5">
-        <label className="text-[11px] font-semibold tracking-[0.18em] text-slate-400">LICENSE KEY</label>
+        <label className="text-[11px] font-semibold tracking-[0.18em] text-slate-400">MÃ KEY</label>
         {notice && phase === "input" && (
           <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3" role="alert">
             <p className="text-[12.5px] text-amber-100/90">{notice}</p>
             {onRetry && (
               <button onClick={onRetry} className="zev-btn-ghost shrink-0 !px-3 !py-1.5 text-xs">
-                Retry
+                Thử lại
               </button>
             )}
           </div>
@@ -111,11 +110,11 @@ export function LicenseScreen({
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
             <div className="flex items-center gap-2">
               <Clock3 size={17} className="text-amber-300" />
-              <p className="text-[13px] font-bold text-amber-200">This license has expired{expiry ? ` (${expiry})` : ""}.</p>
+              <p className="text-[13px] font-bold text-amber-200">Key này đã hết hạn{expiry ? ` (${expiry})` : ""}.</p>
             </div>
-            <p className="mt-1 text-[13px] text-amber-100/80">Enter another license key to continue.</p>
+            <p className="mt-1 text-[13px] text-amber-100/80">Nhập key khác để tiếp tục.</p>
             <button className="zev-btn-ghost mt-3 w-full" onClick={() => { setKey(""); setPhase("input"); }}>
-              Use a different key
+              Dùng key khác
             </button>
           </motion.div>
         )}
@@ -123,17 +122,19 @@ export function LicenseScreen({
         {phase === "success" ? (
           <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
             <ShieldCheck size={20} className="text-emerald-300" />
-            <p className="text-sm font-bold text-emerald-200">Activated — opening your dashboard…</p>
+            <p className="text-sm font-bold text-emerald-200">Đã kích hoạt — đang mở…</p>
           </motion.div>
         ) : (
           <button className="zev-btn-primary mt-4" disabled={phase === "checking" || key.trim().length < 8} onClick={() => void handleActivate()}>
-            {phase === "checking" ? "Verifying…" : "Verify & Activate"}
+            {phase === "checking" ? "Đang kiểm tra…" : "Kích hoạt"}
           </button>
         )}
 
-        <p className="mt-3 text-center text-[11px] text-slate-500">
-          Demo key (dev only): <span className="font-mono text-slate-400">ZEV-DEMO-2026-VIP1</span>
-        </p>
+        {process.env.NODE_ENV !== "production" && (
+          <p className="mt-3 text-center text-[11px] text-slate-500">
+            Key demo (chỉ dev): <span className="font-mono text-slate-400">ZEV-DEMO-2026-VIP1</span>
+          </p>
+        )}
       </div>
 
       <div className="mt-auto pt-8" />

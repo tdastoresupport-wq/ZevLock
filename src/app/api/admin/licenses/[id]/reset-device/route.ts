@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { addLog, deleteDevicesForLicense, findLicenseById, revokeSessionsForLicense } from "@/lib/db";
 import { adminOnly } from "@/lib/auth";
 
-/** POST /api/admin/licenses/:id/reset-device — RESET DEVICE binding. */
+/** POST /api/admin/licenses/:id/reset-device — RESET DEVICE binding. ADMIN+ only. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await adminOnly(req);
+  const denied = await adminOnly(req, "ADMIN");
   if (denied) return denied;
   const lic = await findLicenseById((await params).id);
   if (!lic) return NextResponse.json({ error: "License not found", code: "not_found" }, { status: 404 });

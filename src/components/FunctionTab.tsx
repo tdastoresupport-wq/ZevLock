@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Crosshair, Power } from "lucide-react";
 import { SectionHeader, Skeleton, Toggle } from "./ui";
 import { api } from "@/lib/api";
 import { playError, playOff, playOn } from "@/lib/sound";
 import { FUNCTIONS, type ActivityEvent, type FunctionKey, type FunctionStates } from "@/lib/types";
 import { fmtTime } from "@/lib/format";
+import { DUR } from "@/lib/motion";
+import { PRESS } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 
 /**
@@ -65,8 +67,8 @@ export function FunctionTab({
   return (
     <div className="space-y-5">
       <div className="pt-1">
-        <h1 className="text-[22px] font-black">Control Center</h1>
-        <p className="mt-0.5 text-[12px] text-slate-400">Tune each preset.</p>
+        <h1 className="text-[22px] font-black">Điều khiển</h1>
+        <p className="mt-0.5 text-[12px] text-slate-400">Chỉnh từng chức năng.</p>
       </div>
 
       {/* Master control */}
@@ -79,30 +81,30 @@ export function FunctionTab({
             <Power size={18} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-black">All systems</p>
+            <p className="text-[14px] font-black">Tất cả hệ thống</p>
             <p className="tnum text-[11.5px] text-slate-400" aria-live="polite">
-              {savingAll ? "Applying…" : `${onCount}/${FUNCTIONS.length} engaged`}
+              {savingAll ? "Đang áp dụng…" : `${onCount}/${FUNCTIONS.length} đang bật`}
             </p>
-            {masterFailed && <p className="text-[11px] text-red-400">Bulk update failed — rolled back.</p>}
+            {masterFailed && <p className="text-[11px] text-red-400">Lỗi hàng loạt — đã hoàn tác.</p>}
           </div>
           <motion.button
-            whileTap={{ scale: 0.94 }}
+            whileTap={{ scale: PRESS.std }}
             disabled={savingAll || !!savingKey}
             onClick={() => void handleMaster()}
             className={cn(
-              "shrink-0 rounded-full px-4 py-2.5 text-[12px] font-black tracking-wide text-white disabled:opacity-50",
+              "zev-noselect shrink-0 rounded-full px-4 py-2.5 text-[12px] font-black tracking-wide text-white disabled:opacity-50",
               allOn ? "bg-white/10 text-slate-200" : "bg-gradient-to-r from-violet-600 to-purple-500 shadow-[0_0_16px_rgba(168,85,247,0.4)]"
             )}
             style={{ minHeight: 44 }}
           >
-            {savingAll ? "Working…" : allOn ? "Turn all off" : "Turn all on"}
+            {savingAll ? "Đang làm…" : allOn ? "Tắt tất cả" : "Bật tất cả"}
           </motion.button>
         </div>
       </div>
 
       {/* Grouped by state */}
       <ControlGroup
-        title={`ACTIVE · ${active.length}`}
+        title={`ĐANG BẬT · ${active.length}`}
         items={active}
         functions={functions}
         savingKey={savingKey}
@@ -111,7 +113,7 @@ export function FunctionTab({
         onHandle={(k) => void handle(k)}
       />
       <ControlGroup
-        title={`INACTIVE · ${standby.length}`}
+        title={`ĐANG TẮT · ${standby.length}`}
         items={standby}
         dim
         functions={functions}
@@ -143,13 +145,19 @@ function ControlGroup({
     <div>
       <SectionHeader kicker={title} />
       <div className={cn("mt-1.5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]", dim && "opacity-80")}>
+        {/* Exit-only fade when a row changes groups (toggle on/off).
+            No enter animation (the tab container handles entrance) and no
+            layout animation (proven stuck-animation risk under rapid input).
+            Opacity-only, 0.12s, interruptible by design. */}
+        <AnimatePresence initial={false} mode="popLayout">
         {items.map((f, i) => {
           const on = functions[f.key];
           const busy = savingKey === f.key || busyAll;
           return (
-            <div
+            <motion.div
               key={f.key}
-              className={cn("flex items-center gap-3 px-3.5 py-1.5", i > 0 && "border-t border-white/5")}
+              exit={{ opacity: 0, transition: { duration: DUR.press } }}
+              className={cn("zev-noselect flex items-center gap-3 px-3.5 py-1.5", i > 0 && "border-t border-white/5")}
             >
               <span className={cn(
                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
@@ -161,14 +169,15 @@ function ControlGroup({
                 <p className="truncate text-[14px] font-bold">{f.name}</p>
                 <p className="truncate text-[11.5px] text-slate-400">{f.blurb} <span className="text-purple-300/70">· {f.tagline}</span></p>
                 <p className={cn("text-[10.5px] font-black tracking-wider", on ? "text-emerald-300" : "text-slate-500")}>
-                  {busy ? "SAVING…" : on ? "ON" : "OFF"}
+                  {busy ? "ĐANG LƯU…" : on ? "ON" : "OFF"}
                 </p>
-                {failed === f.key && <p className="text-[11px] text-red-400">Save failed — rolled back, tap to retry.</p>}
+                {failed === f.key && <p className="text-[11px] text-red-400">Lưu lỗi — đã hoàn tác, chạm để thử lại.</p>}
               </div>
               <Toggle label={`${f.name} ${on ? "on" : "off"}`} on={on} disabled={busy} onChange={() => onHandle(f.key)} />
-            </div>
+            </motion.div>
           );
         })}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -177,7 +186,7 @@ function ControlGroup({
 function ErrorStateInline() {
   return (
     <p className="pb-2 text-center text-[11px] text-slate-600">
-      Changes save to your key instantly
+      Thay đổi lưu vào key của bạn ngay lập tức
     </p>
   );
 }
@@ -202,7 +211,7 @@ export async function persistToggle(
       at: fmtTime(nowIso),
       iso: nowIso,
       label: meta?.name ?? key,
-      action: next ? "Enabled" : "Disabled",
+      action: next ? "Đã bật" : "Đã tắt",
       kind: next ? "enabled" : "disabled",
     });
   } catch (e) {
@@ -230,8 +239,8 @@ export async function persistMany(
       id: `${Date.now()}-all`,
       at: fmtTime(nowIso),
       iso: nowIso,
-      label: allOn ? "All systems on" : "All systems off",
-      action: "Bulk update",
+      label: allOn ? "Đã bật tất cả" : "Đã tắt tất cả",
+      action: "Cập nhật hàng loạt",
       kind: allOn ? "enabled" : "disabled",
     });
   } catch (e) {

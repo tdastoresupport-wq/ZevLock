@@ -66,7 +66,11 @@ export const api = {
       body: JSON.stringify({ key, device_identifier, platform }),
     }),
 
-  licenseStatus: () => req<LicenseStatusResponse>(`/api/license/status`),
+  licenseStatus: () => {
+    const dev = storageGet("zev_device_id");
+    const q = dev ? `?device_identifier=${encodeURIComponent(dev)}` : "";
+    return req<LicenseStatusResponse>(`/api/license/status${q}`);
+  },
 
   getFunctions: () => req<{ functions: FunctionStates }>(`/api/functions`),
 
@@ -109,36 +113,4 @@ export const adminAuth = {
     ),
   me: () => adminReq<{ admin: { id: string; email: string; name: string; role: string } }>(`/api/admin/me`),
   logout: () => adminReq<{ ok: true }>(`/api/admin/logout`, { method: "POST" }),
-};
-
-export interface ProfileHistoryItem {
-  preset: string;
-  identifier: string;
-  uuid: string;
-  created_at: string;
-  downloaded: boolean;
-}
-
-export interface GeneratedProfile {
-  preset: string;
-  filename: string;
-  contentType: string;
-  identifier: string;
-  uuid: string;
-  xml: string;
-  history: ProfileHistoryItem[];
-}
-
-export const profiles = {
-  generate: (preset: string) =>
-    req<GeneratedProfile>(`/api/mobileconfig/generate`, {
-      method: "POST",
-      body: JSON.stringify({ preset }),
-    }),
-  validate: (preset: string) =>
-    req<{ ok: boolean; errors: string[]; schemaVersion: string; identifier: string; uuid: string }>(
-      `/api/mobileconfig/validate`, { method: "POST", body: JSON.stringify({ preset }) }
-    ),
-  downloadUrl: (preset: string) => `/api/mobileconfig/download?profile=${encodeURIComponent(preset)}`,
-  history: () => req<{ items: ProfileHistoryItem[] }>(`/api/mobileconfig/history`),
 };

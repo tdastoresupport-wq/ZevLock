@@ -28,6 +28,11 @@ export async function GET(req: NextRequest) {
       expires_at: lic.expires_at, device_limit: lic.device_limit, activated_at: lic.activated_at,
       display_name: lic.display_name ?? null, avatar: lic.avatar ?? null,
       created_at: lic.created_at,
+      is_permanent: lic.is_permanent ?? 0,
+      // Server-authoritative clock anchor: the client renders remaining time
+      // from expires_at minus clock drift (server_now vs Date.now()), so the
+      // countdown survives reload/reopen and ignores device-clock tampering.
+      server_now: new Date().toISOString(),
     },
     device: {
       platform: device?.platform ?? "iPhone",

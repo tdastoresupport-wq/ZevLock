@@ -34,7 +34,7 @@ npm run dev                  # http://localhost:3000
 ```
 
 Local dev without a D1 binding uses an **in-memory demo store** seeded like
-`migrations/0002_seed.sql` (demo key below). Production (Cloudflare) uses real D1.
+`seeds/0002_seed.dev.sql` (demo key below). Production (Cloudflare) uses real D1.
 
 **Demo credentials — DEVELOPMENT ONLY:**
 - License: `ZEV-DEMO-2026-VIP1` (ACTIVE, expires 2031-03-16)
@@ -91,8 +91,9 @@ fallback is shown automatically and every icon reference keeps working.
 npx wrangler d1 create zevlock-db
 # paste database_id into wrangler.jsonc
 npm run db:migrate:local    # verify migrations locally
-npm run db:migrate:remote   # apply to production D1
-npx wrangler d1 execute zevlock-db --remote --file=./migrations/0002_seed.sql  # optional demo seed
+npm run db:migrate:remote   # apply to production D1 (schema only — never seeds demo keys)
+# Local dev seed only (DEMO keys, never run against production):
+npm run db:seed:local
 ```
 
 ## Production deploy (Cloudflare Workers)
@@ -110,7 +111,8 @@ npm run cf:deploy
 ## Project layout
 
 ```
-migrations/          0001_init.sql (schema) · 0002_seed.sql (demo data)
+migrations/          0001_init.sql (schema) · 0003–0007 (schema, in order)
+seeds/               0002_seed.dev.sql (DEV-ONLY demo data, never migrated to prod)
 src/app/             layout, globals.css, manifest, page (3-tab shell), admin/
 src/app/api/         license · device · functions · session · admin routes
 src/components/      AppShell, LicenseScreen, HomeTab, FunctionTab, RealtimeTab,

@@ -4,8 +4,19 @@
   --zev-bg: #05060f;
   --zev-card: #0c1024;
   --zev-border: rgba(148, 163, 255, 0.14);
+  /* ---- ZEV color tokens (single source; Tailwind utilities below reuse
+   * these exact values — add new brand colors here, not inline) ---- */
+  --zev-text: #f4f6ff;
+  --zev-muted: #94a3b8;
+  --zev-faint: #64748b;
   --zev-violet: #8b5cf6;
+  --zev-violet-deep: #7c3aed;
+  --zev-lavender: #c084fc;
   --zev-cyan: #22d3ee;
+  --zev-success: #34d399;
+  --zev-warn: #fbbf24;
+  --zev-error: #f87171;
+  --zev-input-bg: #0a0e22;
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   color-scheme: dark;
@@ -13,7 +24,7 @@
 
 html, body {
   background: var(--zev-bg);
-  color: #f4f6ff;
+  color: var(--zev-text);
   overscroll-behavior-y: none;
 }
 
@@ -50,7 +61,7 @@ body {
 
   .zev-input {
     width: 100%;
-    background: #0a0e22;
+    background: var(--zev-input-bg);
     border: 1px solid var(--zev-border);
     border-radius: 14px;
     padding: 14px 16px;
@@ -63,6 +74,9 @@ body {
     border-color: rgba(139, 92, 246, 0.6);
     box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
   }
+  .zev-input::placeholder { color: #64748b; opacity: 1; }
+  .zev-input:disabled { opacity: 0.5; }
+  .zev-input[aria-invalid="true"] { border-color: rgba(248, 113, 113, 0.55); }
 
   .zev-btn-primary {
     width: 100%;
@@ -228,9 +242,58 @@ body {
 
   /* ---- tabular numerals for timers/counters ---- */
   .tnum { font-variant-numeric: tabular-nums; }
+
+  /* ---- no-select controls: rapid tapping must never paint text selection
+   * over switches/nav/buttons. Scoped to interactive surfaces ONLY —
+   * keys, activity, and readable content stay selectable. ---- */
+  .zev-noselect {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* ---- ZEV Aurora: signature ambient ----
+   * Two soft radial fields drifting almost imperceptibly (26s loop).
+   * Transform-only, no blur animation, no canvas. Paused when the page
+   * is hidden (body.zev-paused) and static under reduced motion. */
+  .zev-aurora {
+    position: fixed;
+    inset: -12%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(42% 34% at 18% 6%, rgba(124, 58, 237, 0.13), transparent 70%),
+      radial-gradient(36% 28% at 86% 20%, rgba(34, 211, 238, 0.06), transparent 70%),
+      radial-gradient(52% 40% at 50% 102%, rgba(88, 28, 135, 0.11), transparent 70%);
+    animation: aurora-drift 26s ease-in-out infinite alternate;
+  }
+  body.zev-paused .zev-aurora { animation-play-state: paused; }
+
+  /* ---- mount entrance: opacity + small rise, replays on tab remount ---- */
+  .zev-enter { animation: zev-enter 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* ---- admin operational transitions (no layout animation) ---- */
+  .zev-admin-tab {
+    transition-property: transform, background-color, border-color, color;
+    transition-duration: 0.18s;
+    transition-timing-function: ease-out;
+  }
+  .zev-admin-tab:active { transform: scale(0.96); }
+  .zev-card-hover {
+    transition-property: border-color, background-color;
+    transition-duration: 0.18s;
+    transition-timing-function: ease-out;
+  }
 }
 
 @keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes aurora-drift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to { transform: translate3d(2%, 2%, 0) scale(1.04); }
+}
+@keyframes zev-enter {
+  from { opacity: 0; transform: translateY(10px); }
+}
 @keyframes splash-glow {
   0% { opacity: 0; transform: scale(0.92); filter: blur(6px); }
   60% { opacity: 1; transform: scale(1.02); filter: blur(0); }
@@ -251,6 +314,8 @@ body {
 /* ---- respect reduced motion globally ---- */
 @media (prefers-reduced-motion: reduce) {
   .zev-splash-logo, .zev-live-dot, .skeleton { animation: none !important; }
+  .zev-aurora { animation: none !important; }
+  .zev-enter { animation-duration: 0.01ms !important; }
   .zev-progress > span { transition: none; }
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

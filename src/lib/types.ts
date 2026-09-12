@@ -101,6 +101,9 @@ export interface LicenseStatusResponse {
   license: Pick<License, "key" | "plan" | "status" | "expires_at" | "device_limit" | "activated_at" | "created_at"> & {
     display_name: string | null;
     avatar: string | null;
+    is_permanent: number;
+    /** Absolute server clock at response time — anchor for the countdown. */
+    server_now: string;
   };
   device: { platform: string; status: "BOUND" | "UNBOUND"; last_seen_at: string | null };
   functions: FunctionStates;

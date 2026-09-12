@@ -4,9 +4,9 @@ import { adminOnly } from "@/lib/auth";
 import { extendLicenseSchema } from "@/lib/validation";
 import { addDaysIso } from "@/lib/keys";
 
-/** POST /api/admin/licenses/:id/extend — EXTEND EXPIRY { extra_days }. */
+/** POST /api/admin/licenses/:id/extend — EXTEND EXPIRY { extra_days }. ADMIN+ only. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await adminOnly(req);
+  const denied = await adminOnly(req, "ADMIN");
   if (denied) return denied;
   const lic = await findLicenseById((await params).id);
   if (!lic) return NextResponse.json({ error: "License not found", code: "not_found" }, { status: 404 });

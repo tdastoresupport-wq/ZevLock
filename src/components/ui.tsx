@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { PRESS, SPRING } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 
 export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
@@ -36,7 +37,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
       <p className="text-sm text-slate-300">{message}</p>
       {onRetry && (
         <button className="zev-btn-ghost mt-4 px-6" onClick={onRetry}>
-          Try again
+          Thử lại
         </button>
       )}
     </Card>
@@ -54,9 +55,9 @@ export function Toggle({ on, disabled, label, onChange }: { on: boolean; disable
       aria-label={label}
       disabled={disabled}
       onClick={onChange}
-      whileTap={{ scale: 0.9 }}
-      transition={{ type: "spring", stiffness: 700, damping: 28 }}
-      className={cn("relative flex h-11 w-[60px] shrink-0 items-center justify-center", disabled && "opacity-50")}
+      whileTap={{ scale: PRESS.hard }}
+      transition={SPRING.toggleTap}
+      className={cn("zev-noselect relative flex h-11 w-[60px] shrink-0 items-center justify-center", disabled && "opacity-50")}
       style={{ minWidth: 60, minHeight: 44 }}
     >
       <span
@@ -70,7 +71,7 @@ export function Toggle({ on, disabled, label, onChange }: { on: boolean; disable
       <motion.span
         initial={false}
         animate={{ x: on ? 11 : -11 }}
-        transition={{ type: "spring", stiffness: 650, damping: 30 }}
+        transition={SPRING.toggle}
         style={{ marginLeft: -12, marginTop: -12 }}
         className={cn(
           "absolute left-1/2 top-1/2 h-6 w-6 rounded-full bg-white",
@@ -88,13 +89,20 @@ export function ConfirmDialog({
   onConfirm: () => void; onCancel: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.querySelector<HTMLElement>("button")?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4" onClick={onCancel}>
-      <div className="zev-card w-full max-w-[440px] p-5" onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} role="alertdialog" aria-modal="true" aria-label={title} className="zev-card w-full max-w-[440px] p-5" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-base font-bold">{title}</h3>
         <p className="mt-1 text-sm text-slate-400">{body}</p>
         <div className="mt-5 flex gap-3">
-          <button className="zev-btn-ghost flex-1" onClick={onCancel}>Cancel</button>
+          <button className="zev-btn-ghost flex-1" onClick={onCancel}>Hủy</button>
           <button
             disabled={busy}
             onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}

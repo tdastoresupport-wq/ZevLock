@@ -5,7 +5,7 @@ import type { AdminUser, Device, FunctionStates, License } from "./types";
  * D1 access layer.
  * - Production (Cloudflare Workers): uses the `DB` D1 binding.
  * - Local dev (`next dev` without bindings): falls back to an in-memory
- *   demo store seeded like `migrations/0002_seed.sql`, so UI/API work
+ *   demo store seeded like `seeds/0002_seed.dev.sql`, so UI/API work
  *   without Cloudflare. NOT for production.
  */
 
@@ -301,7 +301,7 @@ export async function setFunctions(licenseId: string, deviceId: string | null, p
   await d1.prepare(
     `INSERT INTO function_states (id, license_id, device_id, aimlock_head, stability_assist, aim_hold, aim_lockdown, sensitivity_boost, screen_boost, headshot_fix, fix_recoil, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(license_id, device_id) DO UPDATE SET
+     ON CONFLICT(id) DO UPDATE SET
        aimlock_head = excluded.aimlock_head, stability_assist = excluded.stability_assist,
        aim_hold = excluded.aim_hold, aim_lockdown = excluded.aim_lockdown,
        sensitivity_boost = excluded.sensitivity_boost, screen_boost = excluded.screen_boost,
@@ -446,6 +446,13 @@ export async function updateAdminLogin(id: string): Promise<void> {
   const d1 = getD1();
   if (!d1) { const u = mem().users.get(id); if (u) u.last_login_at = now(); return; }
   await d1.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").bind(now(), id).run();
+}
+
+/** Replace an admin's bcrypt hash (password reset). Service-layer only. */
+export async function updateAdminPassword(id: string, passwordHash: string): Promise<void> {
+  const d1 = getD1();
+  if (!d1) { const u = mem().users.get(id); if (u) u.password_hash = passwordHash; return; }
+  await d1.prepare("UPDATE users SET password_hash = ? WHERE id = ?").bind(passwordHash, id).run();
 }
 
 /* ---------------- profile generation history ---------------- */

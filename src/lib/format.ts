@@ -22,23 +22,36 @@ export function fmtCountdown(ms: number): string {
   return `${h}:${m}:${sec}`;
 }
 
-/** Relative time ("Just now", "3 min ago") for activity rows. */
+/** Relative time ("Vừa xong", "3 phút trước") for activity rows. */
 export function timeAgo(iso: string): string {
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return "";
   const diff = Date.now() - t;
-  if (diff < 45_000) return "Just now";
+  if (diff < 45_000) return "Vừa xong";
   const min = Math.floor(diff / 60_000);
-  if (min < 60) return `${min} min ago`;
+  if (min < 60) return `${min} phút trước`;
   const h = Math.floor(min / 60);
-  if (h < 24) return `${h} hour${h > 1 ? "s" : ""} ago`;
+  if (h < 24) return `${h} giờ trước`;
+  return fmtDate(iso);
+}
+
+/** Compact variant for tight counters ("Vừa xong", "3 phút", "2 giờ"). */
+export function timeAgoShort(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "";
+  const diff = Date.now() - t;
+  if (diff < 45_000) return "Vừa xong";
+  const min = Math.floor(diff / 60_000);
+  if (min < 60) return `${min} phút`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} giờ`;
   return fmtDate(iso);
 }
 
 /** Time-based greeting for the home hero. */
 export function greeting(): string {
   const h = new Date().getHours();
-  if (h < 11) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
+  if (h < 11) return "Chào buổi sáng";
+  if (h < 18) return "Chào buổi chiều";
+  return "Chào buổi tối";
 }

@@ -8,6 +8,7 @@ import { adminAuth, adminReq } from "@/lib/api";
 import { validateMobileconfig } from "@/lib/mobileconfig";
 import { Card, ConfirmDialog, ErrorState, Label, Skeleton } from "@/components/ui";
 import { BrandMark } from "@/components/BrandMark";
+import { Wordmark } from "@/components/Wordmark";
 import { KeyAvatar } from "@/components/KeyAvatar";
 import { fmtDate, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -83,8 +84,8 @@ export function AdminDashboard() {
     return (
       <div className="zev-top-pad mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-5 pb-10">
         <div className="mt-12 flex flex-col items-center">
-          <BrandMark size={64} />
-          <h1 className="mt-4 text-center text-2xl font-black tracking-[0.2em]">ZEV ADMIN</h1>
+          <Wordmark size="md" />
+          <h1 className="mt-4 text-center text-[13px] font-bold tracking-[0.3em] text-slate-400">BẢNG ĐIỀU KHIỂN</h1>
         </div>
         <Card className="mt-6">
           <Label>EMAIL</Label>
@@ -144,7 +145,7 @@ export function AdminDashboard() {
             aria-selected={tab === t}
             onClick={() => setTab(t)}
             className={cn(
-              "rounded-full border px-4 py-2 text-[13px] font-bold capitalize",
+              "zev-admin-tab rounded-full border px-4 py-2 text-[13px] font-bold capitalize",
               tab === t ? "border-violet-400/50 bg-violet-500/20 text-white" : "border-white/10 text-slate-400"
             )}
           >
@@ -199,7 +200,7 @@ function Overview() {
     ["Sessions (24h)", stats.sessions_24h],
   ];
   return (
-    <div className="space-y-4">
+    <div className="zev-enter space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {cards.map(([label, v]) => (
           <Card key={label}>
@@ -227,8 +228,7 @@ function Overview() {
 /* ------------------------------ Licenses ------------------------------ */
 
 function Licenses({ role }: { role: string }) {
-  const [items, setItems] = useState<License[]>([]);
-  const [total, setTotal] = useState(0);
+  const [items, setItems] = useState<License[]>([]);  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusF, setStatusF] = useState("");
@@ -238,6 +238,9 @@ function Licenses({ role }: { role: string }) {
   const [editing, setEditing] = useState<License | null>(null);
   const [confirm, setConfirm] = useState<null | { title: string; body: string; label: string; run: () => Promise<void> }>(null);
   const [notice, setNotice] = useState("");
+  // Server enforces ADMIN+ on all mutations; the UI mirrors it so SUPPORT
+  // gets a read-only view instead of buttons that 401.
+  const canWrite = canDestroy(role);
 
   const load = useCallback(async (p = page) => {
     try {
@@ -272,7 +275,7 @@ function Licenses({ role }: { role: string }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="zev-enter space-y-3">
       {notice && (
         <p role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-center text-[13px] text-emerald-200">
           {notice}
@@ -298,9 +301,11 @@ function Licenses({ role }: { role: string }) {
       </div>
       <div className="flex gap-2">
         <button className="zev-btn-ghost flex-1" onClick={() => void load(1)}>Apply filters</button>
-        <button className="flex flex-1 items-center justify-center gap-1.5 rounded-[14px] bg-violet-600 p-[11px] text-sm font-bold" onClick={() => setShowCreate(true)}>
-          <Plus size={16} /> New key
-        </button>
+        {canWrite && (
+          <button className="flex flex-1 items-center justify-center gap-1.5 rounded-[14px] bg-violet-600 p-[11px] text-sm font-bold" onClick={() => setShowCreate(true)}>
+            <Plus size={16} /> New key
+          </button>
+        )}
       </div>
 
       {error && <ErrorState message={error} onRetry={() => void load()} />}
@@ -323,15 +328,15 @@ function Licenses({ role }: { role: string }) {
           </p>
           <div className="flex flex-wrap gap-1.5 pt-0.5">
             <RowBtn title="Copy key" onClick={() => void copyKey(l.key)}><Copy size={14} /></RowBtn>
-            <RowBtn title="View / edit" onClick={() => setEditing(l)}><Eye size={14} /></RowBtn>
-            <RowBtn title="Extend 30 days" label="+30d" onClick={() => void run(`/api/admin/licenses/${l.id}/extend`, { method: "POST", body: JSON.stringify({ extra_days: 30 }) })} />
-            <RowBtn title="Unbind devices" onClick={() => void run(`/api/admin/licenses/${l.id}/reset-device`, { method: "POST" }, "Devices unbound.")}><Smartphone size={14} /></RowBtn>
-            {(l.status === "UNUSED" || l.status === "SUSPENDED" || l.status === "EXPIRED") && (
+            <RowBtn title={canWrite ? "View / edit" : "View"} onClick={() => setEditing(l)}><Eye size={14} /></RowBtn>
+            {canWrite && <RowBtn title="Extend 30 days" label="+30d" onClick={() => void run(`/api/admin/licenses/${l.id}/extend`, { method: "POST", body: JSON.stringify({ extra_days: 30 }) })} />}
+            {canWrite && <RowBtn title="Unbind devices" onClick={() => void run(`/api/admin/licenses/${l.id}/reset-device`, { method: "POST" }, "Devices unbound.")}><Smartphone size={14} /></RowBtn>}
+            {canWrite && (l.status === "UNUSED" || l.status === "SUSPENDED" || l.status === "EXPIRED") && (
               <RowBtn title="Activate" onClick={() => void run(`/api/admin/licenses/${l.id}/activate`, { method: "POST", body: JSON.stringify({}) }, "Key activated.")}>
                 <ShieldCheck size={14} />
               </RowBtn>
             )}
-            {l.status !== "SUSPENDED" && l.status !== "REVOKED" && (
+            {canWrite && l.status !== "SUSPENDED" && l.status !== "REVOKED" && (
               <RowBtn title="Suspend" onClick={() => setConfirm({ title: "Suspend key?", body: `${l.display_name || l.key} stops working immediately.`, label: "Suspend", run: () => run(`/api/admin/licenses/${l.id}/suspend`, { method: "POST" }, "Key suspended.") })}>
                 <Ban size={14} />
               </RowBtn>
@@ -349,7 +354,19 @@ function Licenses({ role }: { role: string }) {
           </div>
         </Card>
       ))}
-      {!loading && items.length === 0 && !error && <Card><p className="text-center text-sm text-slate-400">No keys match.</p></Card>}
+      {!loading && items.length === 0 && !error && (
+        <Card>
+          <p className="text-center text-sm font-bold text-slate-300">Không khớp key nào.</p>
+          {(search.trim() || statusF) && (
+            <button
+              className="zev-btn-ghost mx-auto mt-3 block !px-4 !py-2 text-xs"
+              onClick={() => { setSearch(""); setStatusF(""); void load(1); }}
+            >
+              Xóa bộ lọc
+            </button>
+          )}
+        </Card>
+      )}
 
       <div className="flex items-center justify-between text-[13px] text-slate-400">
         <button className="zev-btn-ghost" disabled={page <= 1} onClick={() => void load(page - 1)}>Prev</button>
@@ -361,6 +378,7 @@ function Licenses({ role }: { role: string }) {
       {editing && (
         <KeyEditor
           license={editing}
+          readOnly={!canWrite}
           onClose={() => setEditing(null)}
           onSaved={(l) => { setEditing(null); setNotice("Key updated."); void load(); if (l) setEditing(l); }}
         />
@@ -588,8 +606,9 @@ function KeyCreator({ onClose, onCreated }: { onClose: () => void; onCreated: ()
 
 /* ------------------------------ Key editor ------------------------------ */
 
-function KeyEditor({ license, onClose, onSaved }: {
+function KeyEditor({ license, readOnly, onClose, onSaved }: {
   license: License;
+  readOnly?: boolean;
   onClose: () => void;
   onSaved: (l: License | null) => void;
 }) {
@@ -599,7 +618,7 @@ function KeyEditor({ license, onClose, onSaved }: {
   const [plan, setPlan] = useState(license.plan);
   const [limit, setLimit] = useState(license.device_limit);
   const [expires, setExpires] = useState(license.expires_at ? license.expires_at.slice(0, 16) : "");
-  const [permanent, setPermanent] = useState(!license.expires_at);
+  const [permanent, setPermanent] = useState(license.is_permanent === 1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -607,6 +626,10 @@ function KeyEditor({ license, onClose, onSaved }: {
     try {
       setBusy(true);
       setError("");
+      if (!permanent && !expires) {
+        setError("Pick an expiry date or mark the key Permanent.");
+        return;
+      }
       const res = await adminReq<{ license: License }>(`/api/admin/licenses/${license.id}`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -615,6 +638,7 @@ function KeyEditor({ license, onClose, onSaved }: {
           notes: notes.trim() || null,
           plan,
           device_limit: limit,
+          is_permanent: permanent,
           expires_at: permanent ? null : new Date(expires).toISOString(),
         }),
       });
@@ -682,11 +706,14 @@ function KeyEditor({ license, onClose, onSaved }: {
         {error && <p role="alert" className="mt-2 text-[13px] text-red-400">{error}</p>}
 
         <div className="mt-4 flex gap-3">
-          <button className="zev-btn-ghost flex-1" onClick={onClose}>Cancel</button>
-          <button disabled={busy} onClick={() => void save()} className="flex-1 rounded-[14px] bg-violet-600 p-[11px] text-sm font-bold disabled:opacity-50">
-            {busy ? "Saving…" : "Save changes"}
-          </button>
+          <button className="zev-btn-ghost flex-1" onClick={onClose}>{readOnly ? "Close" : "Cancel"}</button>
+          {!readOnly && (
+            <button disabled={busy} onClick={() => void save()} className="flex-1 rounded-[14px] bg-violet-600 p-[11px] text-sm font-bold disabled:opacity-50">
+              {busy ? "Saving…" : "Save changes"}
+            </button>
+          )}
         </div>
+        {readOnly && <p className="mt-2 text-center text-[11px] text-slate-500">Your role can inspect keys but cannot modify them.</p>}
       </div>
     </div>
   );
@@ -762,7 +789,7 @@ function Templates({ role }: { role: string }) {
   if (loading) return (<><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></>);
 
   return (
-    <div className="space-y-3">
+    <div className="zev-enter space-y-3">
       <Card>
         <div className="flex items-center justify-between">
           <Label>MOBILECONFIG TEMPLATES</Label>
@@ -875,7 +902,7 @@ function Devices() {
   }, []);
   if (error) return <ErrorState message={error} />;
   return (
-    <div className="space-y-2">
+    <div className="zev-enter space-y-2">
       {items.map((d) => (
         <Card key={d.id}>
           <p className="flex items-center gap-2 text-sm font-bold"><Smartphone size={15} className="text-purple-300" />{d.platform}</p>

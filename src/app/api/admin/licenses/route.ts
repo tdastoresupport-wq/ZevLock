@@ -37,7 +37,8 @@ const PRESET_MS: Record<string, number> = {
  * Keys use cryptographically secure randomness (see lib/keys).
  */
 export async function POST(req: NextRequest) {
-  const denied = await adminOnly(req);
+  // Key creation mints access — ADMIN+ only. SUPPORT is read-only.
+  const denied = await adminOnly(req, "ADMIN");
   if (denied) return denied;
   const ip = getClientIp(req);
   if (!rateLimit(`admin-create:${ip}`, 20, 60_000)) return tooMany();

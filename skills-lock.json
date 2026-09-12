@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "106acf230014cbb43ca34e6410371321b56ca742f9ee0442e8ec05bf02eb0384"
+    },
+    "karpathy-agentic-engineering": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-agentic-engineering/SKILL.md",
+      "computedHash": "6687fc9d00ac09102835a4e85be898b219f43c84c146c336608ece5ede826d89"
+    },
+    "karpathy-autoresearch": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-autoresearch/SKILL.md",
+      "computedHash": "03169d284955f9b2a3849ca442428a5fa312bc3354718a344d88cbc883a4350b"
+    },
+    "karpathy-education-first": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-education-first/SKILL.md",
+      "computedHash": "a3dc7e20a938cc0638449062b39dfb20b5a8a28e04a31527e524659718abbb1a"
+    },
+    "karpathy-idea-files": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-idea-files/SKILL.md",
+      "computedHash": "121ac79637f59c177f29c386d5cab09ce1d834815c054a91a4eeeedfa9a9dab3"
+    },
+    "karpathy-llm-simulator": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-llm-simulator/SKILL.md",
+      "computedHash": "d138b0c6760a29d9463decca470bb43f3fc9f5aad3015addad9cbf7e2333764c"
+    },
+    "karpathy-llm-wiki": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-llm-wiki/SKILL.md",
+      "computedHash": "287173c11aae4351daed596c2e12e7e42b6f76180f67149b02c436a578319ab4"
+    },
+    "karpathy-meta-reflection": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-meta-reflection/SKILL.md",
+      "computedHash": "75db5469a3987fe5f040b424ebacc7e3ecf8286be80a6f7a9592b16c0b03dbe3"
+    },
+    "karpathy-methodology": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-methodology/SKILL.md",
+      "computedHash": "66376d5dceacd6af2ba6934c365b66e26a41fbb7a2c4d4291d65efc3f3270a5b"
+    },
+    "karpathy-minimalism": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-minimalism/SKILL.md",
+      "computedHash": "43a72bf1985127d5b634f359b9e68d91faee36554dc525a98925cfc3a892085b"
+    },
+    "karpathy-output-evolution": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-output-evolution/SKILL.md",
+      "computedHash": "05748c33b4009258d7d81418ccd728b601c8034a50b5223e68ecba6fa7be9fff"
+    },
+    "karpathy-practice-environments": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-practice-environments/SKILL.md",
+      "computedHash": "f9828411438161e01ea504de855b5eb9b194bee771ba946996b13a3608fec952"
+    },
+    "karpathy-supply-chain-hygiene": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-supply-chain-hygiene/SKILL.md",
+      "computedHash": "6540a2b4d3e49f63a4acb1b1453b04a981b025959f54fdefa8c932fc8aa93747"
+    },
+    "karpathy-system-prompt-learning": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-system-prompt-learning/SKILL.md",
+      "computedHash": "5f1282f5b14b4474f113f7619293365837148499985235dd0ee5d521ee3675a2"
+    },
+    "karpathy-understanding-first": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-understanding-first/SKILL.md",
+      "computedHash": "32670766bbbfe4fea80e10168eb9b5887138bc7ac1a3425b32f3d69080f37335"
+    },
+    "karpathy-vibe-to-agentic": {
+      "source": "LearnPrompt/andrej-karpathy-skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-vibe-to-agentic/SKILL.md",
+      "computedHash": "0afac33a67a4236a037183b0d23c3afab0fca282a5a43e3527cf25eff2b199d4"
+    }
+  }
+}
