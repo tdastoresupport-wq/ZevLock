@@ -97,7 +97,31 @@ check("sound toggle throttle", "TOGGLE_GAP_MS" in read("src/lib/sound.ts"))
 check("bounded fetch (timeout+abort)", "AbortController" in read("src/lib/api.ts"))
 check(
     "no duplicate-request window (busy guards)",
-    "savingKey || savingAll" in ft or "savingKey||savingAll" in ft.replace(" ", ""),
+    "pendingKeys" in ft and "busyAll" in ft,
+)
+
+print("== F4. multi-switch regression (A ON + B ON must both stick) ==")
+dbsrc = read("src/lib/db.ts")
+check(
+    "server merges disjoint columns (no read-modify-write race)",
+    "ON CONFLICT(id) DO UPDATE SET ${sets}" in dbsrc and "FUNCTION_KEYS" in dbsrc,
+)
+check(
+    "no full-row blind overwrite on update path",
+    "toInt(next.aimlock_head)" not in dbsrc,
+)
+shell = read("src/components/AppShell.tsx")
+check(
+    "per-key pending intents (no global busy swallow)",
+    "pendingKeys.has(key)" in shell and "setSavingKey" not in shell,
+)
+check(
+    "second switch never blocked by first switch flight",
+    "pendingKeys.has(key) || savingAll" in ft or "savingKey" not in ft,
+)
+check(
+    "same-key serialization preserved",
+    "pendingKeys.has(key)" in read("src/components/HomeTab.tsx"),
 )
 
 print("== M1. MobileConfig kept, not central, still secure ==")

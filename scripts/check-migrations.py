@@ -73,6 +73,31 @@ assert (
     == 1
 )
 print("function_states repeated-upsert OK")
+# Regression: reads must prefer the shared (NULL-device) row over older
+# device-ensure rows regardless of planner order (real D1 returned the
+# stale device row for bare LIMIT 1, silently dropping toggles on re-read).
+db.execute(
+    "INSERT INTO licenses (id, key, plan, status, device_limit, created_at)"
+    " VALUES ('t2', 'ZEV-TST2-0001-0001', 'Premium', 'ACTIVE', 1, '2026-01-01T00:00:00.000Z')"
+)
+db.execute(
+    "INSERT INTO devices (id, license_id, device_identifier, platform, created_at, last_seen_at)"
+    " VALUES ('d9', 't2', 'test-device-9', 'iPhone', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')"
+)
+db.execute(
+    "INSERT INTO function_states (id, license_id, device_id, aimlock_head, updated_at)"
+    " VALUES ('fs_t2_dev', 't2', 'd9', 0, 't0')"
+)
+db.execute(
+    "INSERT INTO function_states (id, license_id, device_id, aimlock_head, updated_at)"
+    " VALUES ('fs_t2_shared', 't2', NULL, 1, 't1')"
+)
+got = db.execute(
+    "SELECT aimlock_head FROM function_states WHERE license_id='t2'"
+    " ORDER BY CASE WHEN device_id IS NULL THEN 0 ELSE 1 END, rowid LIMIT 1"
+).fetchone()[0]
+assert got == 1, f"shared-row read failed, got {got}"
+print("shared-row deterministic read OK")
 # Regression: users.role CHECK must accept the real RBAC roles (bootstrap
 # writes SUPER_ADMIN; the V1 CHECK only allowed user/admin on real D1).
 db.execute(

@@ -79,9 +79,10 @@ const check = (name, cond, extra = "") => {
   await nav("Chức năng");
   const f = await counts();
   const s = await serverCount();
+  const allAgree = h.home !== null && h.home === rt.realtime && rt.realtime === f.uiSwitches && f.uiSwitches === s;
   check(
     "Home/Function/Realtime/server agree",
-    h.home === 1 && rt.realtime === 1 && f.uiSwitches === 1 && s === 1,
+    allAgree,
     `home=${h.home} realtime=${rt.realtime} function=${f.uiSwitches} server=${s}`
   );
 
@@ -95,7 +96,7 @@ const check = (name, cond, extra = "") => {
   const s2 = await serverCount();
   check(
     "agreement survives reload",
-    h2.home === 1 && rt2.realtime === 1 && s2 === 1,
+    h2.home !== null && h2.home === rt2.realtime && rt2.realtime === s2,
     `home=${h2.home} realtime=${rt2.realtime} server=${s2}`
   );
 

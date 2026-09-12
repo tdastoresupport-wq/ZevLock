@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import type { AdminUser, Device, FunctionStates, License } from "./types";
+import { FUNCTION_KEYS, type AdminUser, type Device, type FunctionKey, type FunctionStates, type License } from "./types";
 
 /**
  * D1 access layer.
@@ -282,7 +282,12 @@ export async function listDevices(limit: number, offset: number): Promise<Device
 export async function getFunctions(licenseId: string): Promise<FunctionStates> {
   const d1 = getD1();
   if (!d1) return mem().functions.get(licenseId) ?? emptyFunctions();
-  const row = await d1.prepare("SELECT * FROM function_states WHERE license_id = ? LIMIT 1").bind(licenseId).first<Record<string, unknown>>();
+  // Deterministic read: the shared (device_id IS NULL) row is the canonical
+  // store — all mutation paths write there. A bare LIMIT 1 is planner-defined
+  // order and can return a stale all-false device-ensure row instead.
+  const row = await d1.prepare(
+    "SELECT * FROM function_states WHERE license_id = ? ORDER BY CASE WHEN device_id IS NULL THEN 0 ELSE 1 END, rowid LIMIT 1"
+  ).bind(licenseId).first<Record<string, unknown>>();
   return row ? rowToFunctions(row) : emptyFunctions();
 }
 
@@ -295,25 +300,27 @@ export async function setFunctions(licenseId: string, deviceId: string | null, p
     m.functions.set(licenseId, next);
     return next;
   }
-  const cur = await getFunctions(licenseId);
-  const next = { ...cur, ...patch };
+  // Column-merge upsert (no read-modify-write): concurrent writes for
+  // DIFFERENT keys touch disjoint columns, so neither can clobber the
+  // other. Column names come from an allowlist, never from raw input.
+  const keys = (Object.keys(patch) as FunctionKey[]).filter((k) =>
+    (FUNCTION_KEYS as readonly string[]).includes(k) && typeof patch[k] === "boolean"
+  );
+  if (keys.length === 0) return getFunctions(licenseId);
   const toInt = (b: boolean) => (b ? 1 : 0);
+  const cols = keys.join(", ");
+  const placeholders = keys.map(() => "?").join(", ");
+  const sets = keys.map((k) => `${k} = excluded.${k}`).join(", ");
   await d1.prepare(
-    `INSERT INTO function_states (id, license_id, device_id, aimlock_head, stability_assist, aim_hold, aim_lockdown, sensitivity_boost, screen_boost, headshot_fix, fix_recoil, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       aimlock_head = excluded.aimlock_head, stability_assist = excluded.stability_assist,
-       aim_hold = excluded.aim_hold, aim_lockdown = excluded.aim_lockdown,
-       sensitivity_boost = excluded.sensitivity_boost, screen_boost = excluded.screen_boost,
-       headshot_fix = excluded.headshot_fix, fix_recoil = excluded.fix_recoil,
-       updated_at = excluded.updated_at`
+    `INSERT INTO function_states (id, license_id, device_id, ${cols}, updated_at)
+     VALUES (?, ?, ?, ${placeholders}, ?)
+     ON CONFLICT(id) DO UPDATE SET ${sets}, updated_at = excluded.updated_at`
   ).bind(
     `fs_${licenseId}_${deviceId ?? "shared"}`, licenseId, deviceId,
-    toInt(next.aimlock_head), toInt(next.stability_assist), toInt(next.aim_hold),
-    toInt(next.aim_lockdown), toInt(next.sensitivity_boost), toInt(next.screen_boost),
-    toInt(next.headshot_fix), toInt(next.fix_recoil), now()
+    ...keys.map((k) => toInt(patch[k] as boolean)), now()
   ).run();
-  return next;
+  // Authoritative re-read (never a merged guess).
+  return getFunctions(licenseId);
 }
 
 export async function createSession(s: { id: string; license_id: string; device_id: string | null; expires_at: string }): Promise<void> {

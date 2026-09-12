@@ -16,13 +16,13 @@ import { FUNCTIONS } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 export function HomeTab({
-  status, loading, error, activity, savingKey, onRetry, onLogout, onOpenControls, onToggle,
+  status, loading, error, activity, pendingKeys, onRetry, onLogout, onOpenControls, onToggle,
 }: {
   status: LicenseStatusResponse | null;
   loading: boolean;
   error: string | null;
   activity: ActivityEvent[];
-  savingKey: FunctionKey | null;
+  pendingKeys: ReadonlySet<FunctionKey>;
   onRetry: () => void;
   onLogout: () => void;
   onOpenControls: () => void;
@@ -60,7 +60,7 @@ export function HomeTab({
   }
 
   async function flip(key: FunctionKey) {
-    if (savingKey || !status) return;
+    if (pendingKeys.has(key) || !status) return;
     setFailed(null);
     try {
       await onToggle(key, !status.functions[key]);
@@ -146,7 +146,7 @@ export function HomeTab({
           title={`ĐANG BẬT · ${active.length}`}
           keys={active.map((f) => f.key)}
           functions={status.functions}
-          savingKey={savingKey}
+          pendingKeys={pendingKeys}
           failed={failed}
           onFlip={(k) => void flip(k)}
         />
@@ -156,7 +156,7 @@ export function HomeTab({
             dim
             keys={standby.map((f) => f.key)}
             functions={status.functions}
-            savingKey={savingKey}
+            pendingKeys={pendingKeys}
             failed={failed}
             onFlip={(k) => void flip(k)}
           />
@@ -204,12 +204,12 @@ export function HomeTab({
 }
 
 function SystemGroup({
-  title, keys, functions, savingKey, failed, onFlip, dim,
+  title, keys, functions, pendingKeys, failed, onFlip, dim,
 }: {
   title: string;
   keys: FunctionKey[];
   functions: FunctionStates;
-  savingKey: FunctionKey | null;
+  pendingKeys: ReadonlySet<FunctionKey>;
   failed: FunctionKey | null;
   onFlip: (k: FunctionKey) => void;
   dim?: boolean;
@@ -224,7 +224,7 @@ function SystemGroup({
         {keys.map((key, i) => {
           const meta = FUNCTIONS.find((f) => f.key === key)!;
           const on = functions[key];
-          const busy = savingKey === key;
+          const busy = pendingKeys.has(key);
           return (
             <motion.button
               key={key}

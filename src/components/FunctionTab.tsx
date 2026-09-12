@@ -18,10 +18,10 @@ import { cn } from "@/lib/cn";
  * with any game, process, memory, or external system.
  */
 export function FunctionTab({
-  functions, savingKey, savingAll, onToggle, onToggleAll,
+  functions, pendingKeys, savingAll, onToggle, onToggleAll,
 }: {
   functions: FunctionStates | null;
-  savingKey: FunctionKey | null;
+  pendingKeys: ReadonlySet<FunctionKey>;
   savingAll: boolean;
   onToggle: (key: FunctionKey, next: boolean) => Promise<void>;
   onToggleAll: (next: boolean) => Promise<void>;
@@ -30,7 +30,7 @@ export function FunctionTab({
   const [masterFailed, setMasterFailed] = useState(false);
 
   async function handle(key: FunctionKey) {
-    if (!functions || savingKey || savingAll) return;
+    if (!functions || pendingKeys.has(key) || savingAll) return;
     setFailed(null);
     try {
       await onToggle(key, !functions[key]);
@@ -40,7 +40,7 @@ export function FunctionTab({
   }
 
   async function handleMaster() {
-    if (!functions || savingKey || savingAll) return;
+    if (!functions || pendingKeys.size > 0 || savingAll) return;
     setMasterFailed(false);
     try {
       const allOn = FUNCTIONS.every((f) => functions[f.key]);
@@ -89,7 +89,7 @@ export function FunctionTab({
           </div>
           <motion.button
             whileTap={{ scale: PRESS.std }}
-            disabled={savingAll || !!savingKey}
+            disabled={savingAll || pendingKeys.size > 0}
             onClick={() => void handleMaster()}
             className={cn(
               "zev-noselect shrink-0 rounded-full px-4 py-2.5 text-[12px] font-black tracking-wide text-white disabled:opacity-50",
@@ -107,7 +107,7 @@ export function FunctionTab({
         title={`ĐANG BẬT · ${active.length}`}
         items={active}
         functions={functions}
-        savingKey={savingKey}
+        pendingKeys={pendingKeys}
         busyAll={savingAll}
         failed={failed}
         onHandle={(k) => void handle(k)}
@@ -117,7 +117,7 @@ export function FunctionTab({
         items={standby}
         dim
         functions={functions}
-        savingKey={savingKey}
+        pendingKeys={pendingKeys}
         busyAll={savingAll}
         failed={failed}
         onHandle={(k) => void handle(k)}
@@ -129,12 +129,12 @@ export function FunctionTab({
 }
 
 function ControlGroup({
-  title, items, functions, savingKey, busyAll, failed, onHandle, dim,
+  title, items, functions, pendingKeys, busyAll, failed, onHandle, dim,
 }: {
   title: string;
   items: typeof FUNCTIONS;
   functions: FunctionStates;
-  savingKey: FunctionKey | null;
+  pendingKeys: ReadonlySet<FunctionKey>;
   busyAll: boolean;
   failed: FunctionKey | null;
   onHandle: (k: FunctionKey) => void;
@@ -152,7 +152,7 @@ function ControlGroup({
         <AnimatePresence initial={false} mode="popLayout">
         {items.map((f, i) => {
           const on = functions[f.key];
-          const busy = savingKey === f.key || busyAll;
+          const busy = pendingKeys.has(f.key) || busyAll;
           return (
             <motion.div
               key={f.key}

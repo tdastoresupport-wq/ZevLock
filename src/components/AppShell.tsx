@@ -31,8 +31,10 @@ export default function AppShell() {
   const [status, setStatus] = useState<LicenseStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("home");
-  const [savingKey, setSavingKey] = useState<FunctionKey | null>(null);
   const [savingAll, setSavingAll] = useState(false);
+  // Per-key pending intents: different keys may fly concurrently (the server
+  // merges disjoint columns); the same key stays serialized while pending.
+  const [pendingKeys, setPendingKeys] = useState<ReadonlySet<FunctionKey>>(new Set());
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [welcome, setWelcome] = useState(false);
   const flightRef = useRef(0);
@@ -140,14 +142,20 @@ export default function AppShell() {
   }
 
   async function handleToggle(key: FunctionKey, next: boolean) {
-    if (!status) return;
-    setSavingKey(key);
+    if (!status || pendingKeys.has(key)) return;
+    setPendingKeys((prev) => new Set(prev).add(key));
     try {
       await mutate(() => persistToggle(key, next, status.functions, (f: FunctionStates) => {
         if (mountedRef.current) setStatus((s) => (s ? { ...s, functions: f } : s));
       }, pushActivity));
     } finally {
-      if (mountedRef.current) setSavingKey(null);
+      if (mountedRef.current) {
+        setPendingKeys((prev) => {
+          const nextSet = new Set(prev);
+          nextSet.delete(key);
+          return nextSet;
+        });
+      }
     }
   }
 
@@ -225,7 +233,7 @@ export default function AppShell() {
                 loading={false}
                 error={error}
                 activity={activity}
-                savingKey={savingKey}
+                pendingKeys={pendingKeys}
                 onRetry={() => void refresh()}
                 onLogout={() => void handleLogout()}
                 onOpenControls={() => setTab("function")}
@@ -235,7 +243,7 @@ export default function AppShell() {
             {tab === "function" && (
               <FunctionTab
                 functions={status.functions}
-                savingKey={savingKey}
+                pendingKeys={pendingKeys}
                 savingAll={savingAll}
                 onToggle={async (k, n) => { await handleToggle(k, n); }}
                 onToggleAll={async (n) => { await handleToggleAll(n); }}
